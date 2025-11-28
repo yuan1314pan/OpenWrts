@@ -3,6 +3,19 @@ name: x86_64 OpenWrt Build
 on:
   repository_dispatch:
   workflow_dispatch:
+    inputs:
+      lan_ip:
+        description: '默认 LAN IP 地址'
+        required: true
+        default: '192.168.100.1'
+      pppoe_user:
+        description: 'PPPoE 用户名'
+        required: true
+      pppoe_pass:
+        description: 'PPPoE 密码'
+        required: true
+
+  
 
 env:
   OPNAME: 'x86_64'                     # 项目/固件名称
