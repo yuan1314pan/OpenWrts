@@ -5,19 +5,19 @@ on:
   workflow_dispatch:
 
 env:
-  OPNAME: 'x86_64'
-  REPO_URL: https://github.com/coolsnowwolf/lede
-  REPO_BRANCH: master
-  FEEDS_CONF: feeds.conf.default
-  EXTERNAL_FILE: configs/luci/Standard.config
-  CONFIG_FILE: configs/x86_64.config
-  SYS_CONF_SH: configure.sh
-  PACKS: package.sh
-  EXTEND_DRIVER: true
-  UPLOAD_BIN_DIR: false
-  UPLOAD_FIRMWARE: true
-  UPLOAD_RELEASE: true
-  TZ: Asia/Shanghai
+  OPNAME: 'x86_64'                     # 项目/固件名称
+  REPO_URL: https://github.com/coolsnowwolf/lede  # OpenWrt 源码仓库
+  REPO_BRANCH: master                  # 分支
+  FEEDS_CONF: feeds.conf.default       # feeds 配置文件
+  EXTERNAL_FILE: configs/luci/Standard.config  # 自定义配置文件
+  CONFIG_FILE: configs/x86_64.config   # 默认 .config 文件
+  SYS_CONF_SH: configure.sh            # 自定义配置脚本
+  PACKS: package.sh                     # 自定义包安装脚本
+  EXTEND_DRIVER: true                   # 是否加载扩展驱动
+  UPLOAD_BIN_DIR: false                 # 是否上传整个 bin 目录
+  UPLOAD_FIRMWARE: true                 # 是否上传整理后的固件
+  UPLOAD_RELEASE: true                  # 是否生成 GitHub Release
+  TZ: Asia/Shanghai                     # 时区设置
 
 jobs:
   build:
@@ -25,31 +25,31 @@ jobs:
 
     steps:
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v4       # 拉取仓库代码
 
     - name: Initialization environment
       env:
         DEBIAN_FRONTEND: noninteractive
       run: |
-        sudo rm -rf /etc/apt/sources.list.d/* 
+        sudo rm -rf /etc/apt/sources.list.d/*  # 清理旧源
         sudo -E apt-get -qq update
-        sudo -E apt-get -qq install $(curl -fsSL https://raw.githubusercontent.com/bigbugcc/openwrts/master/openwrt-env)
+        sudo -E apt-get -qq install $(curl -fsSL https://raw.githubusercontent.com/bigbugcc/openwrts/master/openwrt-env) # 安装依赖
         sudo -E apt-get -qq autoremove --purge
         sudo -E apt-get -qq clean
-        sudo timedatectl set-timezone "$TZ"
+        sudo timedatectl set-timezone "$TZ"   # 设置时区
         sudo mkdir -p /mnt/workdir
         sudo chown $USER:$GROUPS /mnt/workdir
 
     - name: Clone source code
       working-directory: /mnt/workdir
       run: |
-        git clone --depth 1 -b $REPO_BRANCH $REPO_URL openwrt
-        ln -sf /mnt/workdir/openwrt $GITHUB_WORKSPACE/openwrt
+        git clone --depth 1 -b $REPO_BRANCH $REPO_URL openwrt   # 克隆源码
+        ln -sf /mnt/workdir/openwrt $GITHUB_WORKSPACE/openwrt    # 创建软链接方便后续访问
 
     - name: Cache
       uses: stupidloud/cachewrtbuild@main
       with:
-          ccache: 'true'
+          ccache: 'true'  # 使用 ccache 加速编译
           mixkey: 'x86'
           prefix: 'openwrt'
 
@@ -67,40 +67,40 @@ jobs:
         cd openwrt
         [ -e $GITHUB_WORKSPACE/$FEEDS_CONF ] && mv $GITHUB_WORKSPACE/$FEEDS_CONF feeds.conf.default
         chmod +x $GITHUB_WORKSPACE/$SYS_CONF_SH
-        bash $GITHUB_WORKSPACE/$SYS_CONF_SH
+        bash $GITHUB_WORKSPACE/$SYS_CONF_SH  # 执行自定义配置脚本
 
     # 加载自定义配置和 package
     - name: Load custom configuration
       run: |
         cd openwrt
-        [ -e $GITHUB_WORKSPACE/files ] && mv $GITHUB_WORKSPACE/files files
-        [ -e $GITHUB_WORKSPACE/$CONFIG_FILE ] && mv $GITHUB_WORKSPACE/$CONFIG_FILE .config
+        [ -e $GITHUB_WORKSPACE/files ] && mv $GITHUB_WORKSPACE/files files   # 自定义 files
+        [ -e $GITHUB_WORKSPACE/$CONFIG_FILE ] && mv $GITHUB_WORKSPACE/$CONFIG_FILE .config  # 使用默认 .config
         chmod +x $GITHUB_WORKSPACE/$PACKS
-        bash $GITHUB_WORKSPACE/$PACKS
+        bash $GITHUB_WORKSPACE/$PACKS  # 安装自定义 package
 
-    # 扩展驱动
+    # 扩展驱动（如果 EXTEND_DRIVER = true）
     - name: Extend Driver
       if: env.EXTEND_DRIVER == 'true'
       run: |
         cd openwrt
-        cat $GITHUB_WORKSPACE/configs/Driver.config >> .config
+        cat $GITHUB_WORKSPACE/configs/Driver.config >> .config   # 合并 Driver 配置
 
     # 修改配置
     - name: Modify configuration
       run: |
         cd openwrt
-        cat $GITHUB_WORKSPACE/$EXTERNAL_FILE >> .config
-        make defconfig
-        sed -i '/CONFIG_DEFAULT_luci/d' .config
-        cat .config
+        cat $GITHUB_WORKSPACE/$EXTERNAL_FILE >> .config    # 合并 Standard.config
+        make defconfig                                    # 更新配置
+        sed -i '/CONFIG_DEFAULT_luci/d' .config           # 删除默认 luci
+        cat .config                                       # 输出查看
 
     # 下载依赖包
     - name: Download packages
       run: |
         cd openwrt
         make download -j$(nproc)
-        find dl -size -1024c -exec ls -l {} \;
-        find dl -size -1024c -exec rm -f {} \;
+        find dl -size -1024c -exec ls -l {} \;   # 列出小于1KB的包
+        find dl -size -1024c -exec rm -f {} \;  # 删除异常包
 
     # 编译固件
     - name: Compile firmware
@@ -108,17 +108,17 @@ jobs:
       run: |
         cd openwrt
         echo "$(nproc) thread compile"
-        make -j$(nproc) V=s || make -j4 V=s
+        make -j$(nproc) V=s || make -j4 V=s   # 多线程编译，失败降级
         echo "status=success" >> $GITHUB_OUTPUT
         grep '^CONFIG_TARGET.*DEVICE.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/' > DEVICE_NAME
-        [ -s DEVICE_NAME ] && echo "DEVICE_NAME=_$(cat DEVICE_NAME)" >> $GITHUB_ENV
+        [ -s DEVICE_NAME ] && echo "DEVICE_NAME=_$(cat DEVICE_NAME)" >> $GITHUB_ENV  # 设置 DEVICE_NAME
         echo "FILE_DATE=_$(date +'%Y%m%d%H%M')" >> $GITHUB_ENV
 
     - name: Check space usage
       if: (!cancelled())
-      run: df -hT
+      run: df -hT   # 检查磁盘空间
 
-    # 上传 bin 目录
+    # 上传 bin 目录（可选）
     - name: Upload bin directory
       uses: actions/upload-artifact@main
       if: steps.compile.outputs.status == 'success' && env.UPLOAD_BIN_DIR == 'true'
@@ -132,7 +132,7 @@ jobs:
       if: steps.compile.outputs.status == 'success' && env.UPLOAD_FIRMWARE == 'true' && !cancelled()
       run: |
         cd openwrt/bin/targets/*/*
-        rm -rf packages
+        rm -rf packages   # 删除多余包目录
         echo "FIRMWARE=$PWD" >> $GITHUB_ENV
         echo "status=success" >> $GITHUB_OUTPUT
 
@@ -153,11 +153,13 @@ jobs:
         touch release.txt
         echo "status=success" >> $GITHUB_OUTPUT
 
+    # Release 描述文件
     - name: Generate release body
       if: steps.compile.outputs.status == 'success' && !cancelled()
       run: |
         echo "![](https://img.shields.io/github/downloads/${{ github.repository }}/${{ steps.tag.outputs.release_tag }}/total?style=flat-square)" >> release.txt
 
+    # 上传固件到 Release
     - name: Upload firmware to release
       uses: softprops/action-gh-release@v1
       if: steps.tag.outputs.status == 'success' && !cancelled()
@@ -167,4 +169,4 @@ jobs:
         name: ${{ env.OPNAME }}
         tag_name: ${{ steps.tag.outputs.release_tag }}
         body_path: release.txt
-        files: ${{ env.FIRMWARE }}/*
+        files: ${{ env.FIRMWARE }}/*   # 上传整理后的固件
