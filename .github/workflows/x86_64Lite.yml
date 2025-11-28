@@ -89,14 +89,15 @@ jobs:
       run: |
         mkdir -p openwrt/files/etc/uci-defaults
         cat <<EOF > openwrt/files/etc/uci-defaults/99-set-network
-#!/bin/sh
-sed -i 's/192.168.1.1/${{ github.event.inputs.lan_ip }}/g' /etc/config/network
-uci set network.wan.proto='pppoe'
-uci set network.wan.username='${{ github.event.inputs.pppoe_user }}'
-uci set network.wan.password='${{ github.event.inputs.pppoe_pass }}'
-uci commit network
-exit 0
-EOF
+        #!/bin/sh
+        sed -i 's/192.168.1.1/${{ github.event.inputs.lan_ip }}/g' /etc/config/network
+        uci set network.wan.proto='pppoe'
+        uci set network.wan.username='${{ github.event.inputs.pppoe_user }}'
+        uci set network.wan.password='${{ github.event.inputs.pppoe_pass }}'
+        uci commit network
+        exit 0
+        EOF
+
 
     - name: Modify configuration
       run: |
