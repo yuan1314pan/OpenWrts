@@ -3,6 +3,17 @@ name: x86_64Lite
 on:
   repository_dispatch:
   workflow_dispatch:
+    inputs:
+      lan_ip:
+        description: '默认 LAN IP 地址'
+        required: true
+        default: '192.168.100.1'
+      pppoe_user:
+        description: 'PPPoE 用户名'
+        required: true
+      pppoe_pass:
+        description: 'PPPoE 密码'
+        required: true
 
 env:
   OPNAME: 'x86_64Lite'
@@ -49,12 +60,10 @@ jobs:
     - name: Cache
       uses: stupidloud/cachewrtbuild@main
       with:
-          ccache: 'true'
-          mixkey: 'x86'
-          prefix: 'openwrt'
+        ccache: 'true'
+        mixkey: 'x86'
+        prefix: 'openwrt'
 
-    # ------------------------------
-    # Update and install feeds first
     - name: Update and install feeds
       run: |
         cd openwrt
@@ -75,6 +84,19 @@ jobs:
         [ -e $GITHUB_WORKSPACE/$CONFIG_FILE ] && mv $GITHUB_WORKSPACE/$CONFIG_FILE .config
         chmod +x $GITHUB_WORKSPACE/$PACKS
         bash $GITHUB_WORKSPACE/$PACKS
+
+    - name: Set LAN IP and PPPoE account
+      run: |
+        mkdir -p openwrt/files/etc/uci-defaults
+        cat <<EOF > openwrt/files/etc/uci-defaults/99-set-network
+#!/bin/sh
+sed -i 's/192.168.1.1/${{ github.event.inputs.lan_ip }}/g' /etc/config/network
+uci set network.wan.proto='pppoe'
+uci set network.wan.username='${{ github.event.inputs.pppoe_user }}'
+uci set network.wan.password='${{ github.event.inputs.pppoe_pass }}'
+uci commit network
+exit 0
+EOF
 
     - name: Modify configuration
       run: |
