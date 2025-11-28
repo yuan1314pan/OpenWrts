@@ -35,9 +35,16 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
+    #-------------------------------------------------------------
+    # 1. Checkout 仓库
+    #-------------------------------------------------------------
     - name: Checkout
       uses: actions/checkout@v4
 
+    #-------------------------------------------------------------
+    # 2. 清理系统环境 + 安装必要依赖
+    #   注意：删除 dotnet/android/ghc 等可释放 25~30GB 磁盘空间
+    #-------------------------------------------------------------
     - name: Initialization environment
       env:
         DEBIAN_FRONTEND: noninteractive
@@ -51,12 +58,28 @@ jobs:
         sudo mkdir -p /mnt/workdir
         sudo chown $USER:$GROUPS /mnt/workdir
 
+        # ------------ 释放 GitHub Runner 大量磁盘空间 ------------
+        sudo rm -rf /usr/share/dotnet
+        sudo rm -rf /usr/local/lib/android
+        sudo rm -rf /opt/ghc
+        sudo rm -rf /opt/hostedtoolcache/CodeQL
+        sudo docker image prune -a -f
+
+        echo "Disk after system cleanup:"
+        df -hT
+
+    #-------------------------------------------------------------
+    # 3. 克隆 OpenWrt 源码
+    #-------------------------------------------------------------
     - name: Clone source code
       working-directory: /mnt/workdir
       run: |
         git clone --depth 1 -b $REPO_BRANCH $REPO_URL openwrt
         ln -sf /mnt/workdir/openwrt $GITHUB_WORKSPACE/openwrt
 
+    #-------------------------------------------------------------
+    # 4. 使用 cache 加速编译
+    #-------------------------------------------------------------
     - name: Cache
       uses: stupidloud/cachewrtbuild@main
       with:
@@ -64,12 +87,18 @@ jobs:
         mixkey: 'x86'
         prefix: 'openwrt'
 
+    #-------------------------------------------------------------
+    # 5. feeds update/install
+    #-------------------------------------------------------------
     - name: Update and install feeds
       run: |
         cd openwrt
         ./scripts/feeds update -a
         ./scripts/feeds install -a
 
+    #-------------------------------------------------------------
+    # 6. 自定义 feed 与脚本
+    #-------------------------------------------------------------
     - name: Load custom feeds
       run: |
         cd openwrt
@@ -77,6 +106,9 @@ jobs:
         chmod +x $GITHUB_WORKSPACE/$SYS_CONF_SH
         bash $GITHUB_WORKSPACE/$SYS_CONF_SH
 
+    #-------------------------------------------------------------
+    # 7. 加载 .config + package.sh
+    #-------------------------------------------------------------
     - name: Load custom configuration
       run: |
         cd openwrt
@@ -85,26 +117,34 @@ jobs:
         chmod +x $GITHUB_WORKSPACE/$PACKS
         bash $GITHUB_WORKSPACE/$PACKS
 
+    #-------------------------------------------------------------
+    # 8. 自动注入 LAN IP + PPPoE 信息
+    #-------------------------------------------------------------
     - name: Set LAN IP and PPPoE account
       run: |
         mkdir -p openwrt/files/etc/uci-defaults
         cat <<EOF > openwrt/files/etc/uci-defaults/99-set-network
-        #!/bin/sh
-        sed -i 's/192.168.1.1/${{ github.event.inputs.lan_ip }}/g' /etc/config/network
-        uci set network.wan.proto='pppoe'
-        uci set network.wan.username='${{ github.event.inputs.pppoe_user }}'
-        uci set network.wan.password='${{ github.event.inputs.pppoe_pass }}'
-        uci commit network
-        exit 0
-        EOF
+#!/bin/sh
+sed -i 's/192.168.1.1/${{ github.event.inputs.lan_ip }}/g' /etc/config/network
+uci set network.wan.proto='pppoe'
+uci set network.wan.username='${{ github.event.inputs.pppoe_user }}'
+uci set network.wan.password='${{ github.event.inputs.pppoe_pass }}'
+uci commit network
+exit 0
+EOF
 
-
+    #-------------------------------------------------------------
+    # 9. 扩展驱动（kmod）
+    #-------------------------------------------------------------
     - name: Extend Driver
       if: env.EXTEND_DRIVER == 'true'
       run: |
         cd openwrt
         cat $GITHUB_WORKSPACE/configs/Driver.config >> .config
 
+    #-------------------------------------------------------------
+    # 10. 最终修改配置
+    #-------------------------------------------------------------
     - name: Modify configuration
       run: |
         cd openwrt
@@ -113,13 +153,18 @@ jobs:
         sed -i '/CONFIG_DEFAULT_luci/d' .config
         cat .config
 
+    #-------------------------------------------------------------
+    # 11. 下载 dl 包
+    #-------------------------------------------------------------
     - name: Download packages
       run: |
         cd openwrt
         make download -j$(nproc)
-        find dl -size -1024c -exec ls -l {} \;
         find dl -size -1024c -exec rm -f {} \;
 
+    #-------------------------------------------------------------
+    # 12. 编译 OpenWrt 固件
+    #-------------------------------------------------------------
     - name: Compile firmware
       id: compile
       run: |
@@ -131,10 +176,26 @@ jobs:
         [ -s DEVICE_NAME ] && echo "DEVICE_NAME=_$(cat DEVICE_NAME)" >> $GITHUB_ENV
         echo "FILE_DATE=_$(date +'%Y%m%d%H%M')" >> $GITHUB_ENV
 
+    #-------------------------------------------------------------
+    # 13. 清除 OpenWrt 编译垃圾（释放 20~40 GB）
+    #-------------------------------------------------------------
+    - name: Cleanup OpenWrt build cache
+      if: steps.compile.outputs.status == 'success'
+      run: |
+        cd openwrt
+        rm -rf build_dir staging_dir tmp bin/packages .ccache
+        echo "Disk after build cleanup:"
+        df -hT
+
+    #-------------------------------------------------------------
+    # 14. 查看磁盘占用
+    #-------------------------------------------------------------
     - name: Check space usage
-      if: (!cancelled())
       run: df -hT
 
+    #-------------------------------------------------------------
+    # 15. 上传 bin 目录（可选）
+    #-------------------------------------------------------------
     - name: Upload bin directory
       uses: actions/upload-artifact@main
       if: steps.compile.outputs.status == 'success' && env.UPLOAD_BIN_DIR == 'true'
@@ -142,38 +203,52 @@ jobs:
         name: OpenWrt_bin${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
         path: openwrt/bin
 
+    #-------------------------------------------------------------
+    # 16. 整理固件目录
+    #-------------------------------------------------------------
     - name: Organize files
       id: organize
-      if: steps.compile.outputs.status == 'success' && env.UPLOAD_FIRMWARE == 'true' && !cancelled()
+      if: steps.compile.outputs.status == 'success' && env.UPLOAD_FIRMWARE == 'true'
       run: |
         cd openwrt/bin/targets/*/*
         rm -rf packages
         echo "FIRMWARE=$PWD" >> $GITHUB_ENV
         echo "status=success" >> $GITHUB_OUTPUT
 
+    #-------------------------------------------------------------
+    # 17. 上传固件到 Artifact
+    #-------------------------------------------------------------
     - name: Upload firmware directory
       uses: actions/upload-artifact@main
-      if: steps.organize.outputs.status == 'success' && !cancelled()
+      if: steps.organize.outputs.status == 'success'
       with:
         name: OpenWrt_firmware${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
         path: ${{ env.FIRMWARE }}
 
+    #-------------------------------------------------------------
+    # 18. Release tag 生成
+    #-------------------------------------------------------------
     - name: Generate release tag
       id: tag
-      if: steps.compile.outputs.status == 'success' && env.UPLOAD_RELEASE == 'true' && !cancelled()
+      if: steps.compile.outputs.status == 'success' && env.UPLOAD_RELEASE == 'true'
       run: |
         echo "release_tag=$(date +"%Y.%m.%d-%H%M%S")" >> $GITHUB_OUTPUT
         touch release.txt
         echo "status=success" >> $GITHUB_OUTPUT
 
+    #-------------------------------------------------------------
+    # 19. Release 内容生成
+    #-------------------------------------------------------------
     - name: Generate release body
-      if: steps.compile.outputs.status == 'success' && !cancelled()
       run: |
         echo "![](https://img.shields.io/github/downloads/${{ github.repository }}/${{ steps.tag.outputs.release_tag }}/total?style=flat-square)" >> release.txt
 
+    #-------------------------------------------------------------
+    # 20. 上传固件到 Release
+    #-------------------------------------------------------------
     - name: Upload firmware to release
       uses: softprops/action-gh-release@v1
-      if: steps.tag.outputs.status == 'success' && !cancelled()
+      if: steps.tag.outputs.status == 'success'
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
