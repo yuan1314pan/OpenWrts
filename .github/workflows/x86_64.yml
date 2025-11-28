@@ -16,19 +16,19 @@ on:
   repository_dispatch:
 
 env:
-  OPNAME: 'x86_64'                     # 项目/固件名称
-  REPO_URL: https://github.com/coolsnowwolf/lede  # OpenWrt 源码仓库
-  REPO_BRANCH: master                  # 分支
-  FEEDS_CONF: feeds.conf.default       # feeds 配置文件
-  EXTERNAL_FILE: configs/luci/Standard.config  # 自定义配置文件
-  CONFIG_FILE: configs/x86_64.config   # 默认 .config 文件
-  SYS_CONF_SH: configure.sh            # 自定义配置脚本
-  PACKS: package.sh                     # 自定义包安装脚本
-  EXTEND_DRIVER: true                   # 是否加载扩展驱动
-  UPLOAD_BIN_DIR: false                 # 是否上传整个 bin 目录
-  UPLOAD_FIRMWARE: true                 # 是否上传整理后的固件
-  UPLOAD_RELEASE: true                  # 是否生成 GitHub Release
-  TZ: Asia/Shanghai                     # 时区设置
+  OPNAME: 'x86_64'
+  REPO_URL: https://github.com/coolsnowwolf/lede
+  REPO_BRANCH: master
+  FEEDS_CONF: feeds.conf.default
+  EXTERNAL_FILE: configs/luci/Standard.config
+  CONFIG_FILE: configs/x86_64.config
+  SYS_CONF_SH: configure.sh
+  PACKS: package.sh
+  EXTEND_DRIVER: true
+  UPLOAD_BIN_DIR: false
+  UPLOAD_FIRMWARE: true
+  UPLOAD_RELEASE: true
+  TZ: Asia/Shanghai
 
 jobs:
   build:
@@ -60,9 +60,9 @@ jobs:
     - name: Cache
       uses: stupidloud/cachewrtbuild@main
       with:
-          ccache: 'true'
-          mixkey: 'x86'
-          prefix: 'openwrt'
+        ccache: 'true'
+        mixkey: 'x86'
+        prefix: 'openwrt'
 
     - name: Update and install feeds
       run: |
@@ -89,15 +89,14 @@ jobs:
       run: |
         mkdir -p openwrt/files/etc/uci-defaults
         cat <<EOF > openwrt/files/etc/uci-defaults/99-set-network
-  #!/bin/sh
-      sed -i 's/192.168.1.1/${{ github.event.inputs.lan_ip }}/g' /etc/config/network
-        uci set network.wan.proto='pppoe'
-        uci set network.wan.username='${{ github.event.inputs.pppoe_user }}'
-        uci set network.wan.password='${{ github.event.inputs.pppoe_pass }}'
-        uci commit network
-    exit 0
-    EOF
-
+#!/bin/sh
+sed -i 's/192.168.1.1/${{ github.event.inputs.lan_ip }}/g' /etc/config/network
+uci set network.wan.proto='pppoe'
+uci set network.wan.username='${{ github.event.inputs.pppoe_user }}'
+uci set network.wan.password='${{ github.event.inputs.pppoe_pass }}'
+uci commit network
+exit 0
+EOF
 
     - name: Extend Driver
       if: env.EXTEND_DRIVER == 'true'
