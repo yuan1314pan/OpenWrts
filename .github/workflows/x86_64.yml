@@ -1,4 +1,4 @@
-name: x86_64
+name: x86_64 OpenWrt Build
 
 on:
   repository_dispatch:
@@ -43,8 +43,7 @@ jobs:
     - name: Clone source code
       working-directory: /mnt/workdir
       run: |
-        df -hT $PWD
-        git clone --depth 1 $REPO_URL -b $REPO_BRANCH openwrt
+        git clone --depth 1 -b $REPO_BRANCH $REPO_URL openwrt
         ln -sf /mnt/workdir/openwrt $GITHUB_WORKSPACE/openwrt
 
     - name: Cache
@@ -54,62 +53,72 @@ jobs:
           mixkey: 'x86'
           prefix: 'openwrt'
 
+    # ------------------------------
+    # 更新 feeds（必须先于 configure.sh 和自定义包）
+    - name: Update and install feeds
+      run: |
+        cd openwrt
+        ./scripts/feeds update -a
+        ./scripts/feeds install -a
+
+    # 加载自定义 feeds
     - name: Load custom feeds
       run: |
-        [ -e $FEEDS_CONF ] && mv $FEEDS_CONF openwrt/feeds.conf.default
-        chmod +x $SYS_CONF_SH
         cd openwrt
-        $GITHUB_WORKSPACE/$SYS_CONF_SH
+        [ -e $GITHUB_WORKSPACE/$FEEDS_CONF ] && mv $GITHUB_WORKSPACE/$FEEDS_CONF feeds.conf.default
+        chmod +x $GITHUB_WORKSPACE/$SYS_CONF_SH
+        bash $GITHUB_WORKSPACE/$SYS_CONF_SH
 
-    - name: Update feeds
-      run: cd openwrt && ./scripts/feeds update -a
-
-    - name: Install feeds
-      run: cd openwrt && ./scripts/feeds install -a
-
+    # 加载自定义配置和 package
     - name: Load custom configuration
       run: |
-        [ -e files ] && mv files openwrt/files
-        [ -e $CONFIG_FILE ] && mv $CONFIG_FILE openwrt/.config
-        chmod +x $PACKS
         cd openwrt
-        $GITHUB_WORKSPACE/$PACKS
+        [ -e $GITHUB_WORKSPACE/files ] && mv $GITHUB_WORKSPACE/files files
+        [ -e $GITHUB_WORKSPACE/$CONFIG_FILE ] && mv $GITHUB_WORKSPACE/$CONFIG_FILE .config
+        chmod +x $GITHUB_WORKSPACE/$PACKS
+        bash $GITHUB_WORKSPACE/$PACKS
 
+    # 扩展驱动
     - name: Extend Driver
       if: env.EXTEND_DRIVER == 'true'
       run: |
-        cat configs/Driver.config >> openwrt/.config
+        cd openwrt
+        cat $GITHUB_WORKSPACE/configs/Driver.config >> .config
 
+    # 修改配置
     - name: Modify configuration
       run: |
-        cat $EXTERNAL_FILE >> openwrt/.config
-        cd openwrt && make defconfig
-        sed -i '/CONFIG_DEFAULT_luci/'d .config
+        cd openwrt
+        cat $GITHUB_WORKSPACE/$EXTERNAL_FILE >> .config
+        make defconfig
+        sed -i '/CONFIG_DEFAULT_luci/d' .config
         cat .config
 
-    - name: Download package
-      id: package
+    # 下载依赖包
+    - name: Download packages
       run: |
         cd openwrt
         make download -j$(nproc)
         find dl -size -1024c -exec ls -l {} \;
         find dl -size -1024c -exec rm -f {} \;
 
-    - name: Compile the firmware
+    # 编译固件
+    - name: Compile firmware
       id: compile
       run: |
         cd openwrt
-        echo -e "$(nproc) thread compile"
+        echo "$(nproc) thread compile"
         make -j$(nproc) V=s || make -j4 V=s
         echo "status=success" >> $GITHUB_OUTPUT
         grep '^CONFIG_TARGET.*DEVICE.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/' > DEVICE_NAME
         [ -s DEVICE_NAME ] && echo "DEVICE_NAME=_$(cat DEVICE_NAME)" >> $GITHUB_ENV
-        echo "FILE_DATE=_$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
+        echo "FILE_DATE=_$(date +'%Y%m%d%H%M')" >> $GITHUB_ENV
 
     - name: Check space usage
       if: (!cancelled())
       run: df -hT
 
+    # 上传 bin 目录
     - name: Upload bin directory
       uses: actions/upload-artifact@main
       if: steps.compile.outputs.status == 'success' && env.UPLOAD_BIN_DIR == 'true'
@@ -117,6 +126,7 @@ jobs:
         name: OpenWrt_bin${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
         path: openwrt/bin
 
+    # 整理固件文件
     - name: Organize files
       id: organize
       if: steps.compile.outputs.status == 'success' && env.UPLOAD_FIRMWARE == 'true' && !cancelled()
@@ -126,6 +136,7 @@ jobs:
         echo "FIRMWARE=$PWD" >> $GITHUB_ENV
         echo "status=success" >> $GITHUB_OUTPUT
 
+    # 上传固件
     - name: Upload firmware directory
       uses: actions/upload-artifact@main
       if: steps.organize.outputs.status == 'success' && !cancelled()
@@ -133,11 +144,11 @@ jobs:
         name: OpenWrt_firmware${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
         path: ${{ env.FIRMWARE }}
 
+    # Release 标签
     - name: Generate release tag
       id: tag
       if: steps.compile.outputs.status == 'success' && env.UPLOAD_RELEASE == 'true' && !cancelled()
       run: |
-        echo "== Time：$(date +'%Y-%m-%d %H:%M:%S') =="
         echo "release_tag=$(date +"%Y.%m.%d-%H%M%S")" >> $GITHUB_OUTPUT
         touch release.txt
         echo "status=success" >> $GITHUB_OUTPUT
