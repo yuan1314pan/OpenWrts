@@ -1,4 +1,4 @@
-name: x86_64 OpenWrt 编译
+name: x86_64 OpenWrt lite
 
 on:
   workflow_dispatch:
