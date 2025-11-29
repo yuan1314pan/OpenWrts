@@ -145,6 +145,17 @@ jobs:
           printf 'exit 0\n' >> $WORKDIR/openwrt/files/etc/uci-defaults/99-set-network
 
       #-------------------------------------------------------------
+      #-------------------------------------------------------------
+      # 8.1 自动设置 root 密码
+      #-------------------------------------------------------------
+      - name: 自动设置 root 密码
+        run: |
+          mkdir -p $WORKDIR/openwrt/files/etc/uci-defaults
+          printf '#!/bin/sh\n' > $WORKDIR/openwrt/files/etc/uci-defaults/99-set-password
+          # 使用 passwd 命令生成 hash 并写入 shadow
+          printf 'echo "root:password" | chpasswd\n' >> $WORKDIR/openwrt/files/etc/uci-defaults/99-set-password
+          printf 'exit 0\n' >> $WORKDIR/openwrt/files/etc/uci-defaults/99-set-password
+
       # 9. 扩展驱动
       #-------------------------------------------------------------
       - name: 扩展驱动
