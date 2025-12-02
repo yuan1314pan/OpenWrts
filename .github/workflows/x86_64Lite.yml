@@ -6,7 +6,7 @@ on:
       lan_ip:
         description: '默认 LAN IP 地址'
         required: true
-        default: '192.168.100.1'
+        default: '192.168.100.11'
       pppoe_user:
         description: 'PPPoE 用户名'
         required: true
@@ -133,6 +133,18 @@ jobs:
           make defconfig
           sed -i '/CONFIG_DEFAULT_luci/d' .config
           cat .config
+
+      # 10.5 输出并保存最终 .config
+      - name: 输出并保存最终 .config
+        run: |
+          cd $WORKDIR/openwrt
+          echo "======== 当前 OpenWrt 配置 ========"
+          cat .config
+          echo "==================================="
+          # 保存备份文件到 workdir，带时间戳
+          cp .config $WORKDIR/openwrt/.config_backup_$(date +'%Y%m%d%H%M%S')
+          echo "已保存 .config 备份文件"
+
 
       # 11. 下载 dl 包
       - name: 下载依赖包
