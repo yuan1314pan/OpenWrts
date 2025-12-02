@@ -141,11 +141,9 @@ jobs:
         run: |
           cd $WORKDIR/openwrt
           echo "======== 当前 OpenWrt 配置 ========"
-          cat .config
+          grep -v '^#' .config | grep -v '^$'   # 去掉注释和空行
           echo "==================================="
-          # 保存备份文件到 workdir，带时间戳
-          cp .config $WORKDIR/openwrt/.config_backup_$(date +'%Y%m%d%H%M%S')
-          echo "已保存 .config 备份文件"
+
 
 
       # 11. 下载 dl 包
