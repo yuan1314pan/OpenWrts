@@ -17,7 +17,7 @@ src-git kenzo https://github.com/kenzok8/openwrt-packages
 src-git tailscale_lanrat git@github.com:lanrat/openwrt-tailscale-repo.git
 src-git docker https://github.com/openwrt/packages.git^refs/heads/master
 src-git tailscale git@github.com:berndog/lede-tailscale.git
-src-git ddnsgo git//github.com/linkease/ddns-go-feed.git
+src-git ddnsgo git@github.com/linkease/ddns-go-feed.git
 src-git smartdns https://github.com/pymumu/openwrt-smartdns.git;main
 src-git socat https://github.com/immortalwrt/packages.git;packages
 EOF
