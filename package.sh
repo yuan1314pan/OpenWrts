@@ -10,7 +10,7 @@ git clone --depth 1 https://github.com/sirpdboy/luci-app-advancedplus package/ot
 # luci-theme-neobird
 git clone --depth 1 https://github.com/thinktip/luci-theme-neobird.git package/otherapp/luci-theme-neobird
 git clone --depth 1 https://github.com/sirpdboy/luci-theme-kucat package/otherapp/luci-theme-kucat
-git clone --depth 1https://github.com/sirpdboy/luci-app-kucat-config package/otherapp/luci-app-kucat-config
+git clone --depth 1 https://github.com/sirpdboy/luci-app-kucat-config package/otherapp/luci-app-kucat-config
 
 
 # Mentohust
