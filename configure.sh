@@ -2,15 +2,16 @@
 # Modify default system settings
 
 # 修改默认IP为192.168.100.1
-sed -i 's/192.168.1.1/192.168.100.1/g' package/base-files/files/bin/config_generate
+# sed -i 's/192.168.1.1/192.168.100.1/g' package/base-files/files/bin/config_generate
 
 cat > feeds.conf.default <<'EOF'
 src-git packages https://github.com/coolsnowwolf/packages
-src-git luci https://github.com/coolsnowwolf/luci.git;openwrt-23.05
+src-git luci https://github.com/coolsnowwolf/luci.git;openwrt-24.10
 src-git routing https://github.com/coolsnowwolf/routing
 src-git telephony https://github.com/coolsnowwolf/telephony.git
 src-git helloworld https://github.com/fw876/helloworld
 src-git passwall_packages https://github.com/xiaorouji/openwrt-passwall-packages.git;main
+src-git passwall_luci https://github.com/xiaorouji/openwrt-passwall.git;main
 src-git passwall2 https://github.com/xiaorouji/openwrt-passwall2.git;main
 src-git istore https://github.com/linkease/istore;main
 src-git kenzo https://github.com/kenzok8/openwrt-packages
