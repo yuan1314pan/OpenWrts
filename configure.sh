@@ -11,6 +11,7 @@ src-git routing https://github.com/coolsnowwolf/routing
 src-git telephony https://github.com/coolsnowwolf/telephony.git
 src-git helloworld https://github.com/fw876/helloworld
 src-git passwall_packages https://github.com/xiaorouji/openwrt-passwall-packages.git;main
+src-git passwall_luci https://github.com/xiaorouji/openwrt-passwall.git;main
 src-git passwall2 https://github.com/xiaorouji/openwrt-passwall2.git;main
 src-git istore https://github.com/linkease/istore;main
 src-git kenzo https://github.com/kenzok8/openwrt-packages
