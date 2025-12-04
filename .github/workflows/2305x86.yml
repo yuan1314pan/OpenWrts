@@ -1,5 +1,5 @@
 
-name: 23。05-x86_64 OpenWrt diy
+name: 23.05-x86_64 OpenWrt diy
 
 on:
   workflow_dispatch:
