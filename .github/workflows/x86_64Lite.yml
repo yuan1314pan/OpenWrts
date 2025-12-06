@@ -18,7 +18,7 @@ on:
 env:
   OPNAME: 'x86_64Lite'
   REPO_URL: https://git.openwrt.org/openwrt/openwrt.git
-  REPO_BRANCH: v23.05.4
+  REPO_BRANCH: v24.10.3
   FEEDS_CONF: feeds.conf.default
   EXTERNAL_FILE: configs/luci/Lite.config
   CONFIG_FILE: configs/x86_64.config
