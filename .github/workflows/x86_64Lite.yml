@@ -91,8 +91,8 @@ jobs:
       - name: 检查磁盘空间
         run: df -hT
 
-      # 6. 自定义 feeds 和脚本
-      - name: 加载自定义 feeds 和脚本
+      # 6. 自定义 feeds 和脚本 
+      - name: 加载自定义 feeds 和脚本 configurenew.sh
         run: |
           cd $WORKDIR/openwrt
           [ -e $GITHUB_WORKSPACE/$FEEDS_CONF ] && mv $GITHUB_WORKSPACE/$FEEDS_CONF feeds.conf.default
