@@ -10,9 +10,11 @@ on:
       pppoe_user:
         description: 'PPPoE 用户名'
         required: true
+        default: '123456'
       pppoe_pass:
         description: 'PPPoE 密码'
         required: true
+        default: '123456'
   repository_dispatch:
 
 env:
