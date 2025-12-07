@@ -1,4 +1,4 @@
-name: x86_64 OpenWrt lite
+name: x86_64 OpenWrt im
 
 on:
   workflow_dispatch:
@@ -16,7 +16,7 @@ on:
   repository_dispatch:
 
 env:
-  OPNAME: 'x86_64Lite'
+  OPNAME: 'x86_64im'
 	 # 改为 ImmortalWrt 源（im 的）
   REPO_URL: https://github.com/immortalwrt/immortalwrt
   # 使用 openwrt-24.10 分支（对应 OpenWrt 24.10，内核 6.6）
