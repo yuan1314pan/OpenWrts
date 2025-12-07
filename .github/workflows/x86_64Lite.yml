@@ -80,6 +80,7 @@ jobs:
 
       - name: 修改 feeds.conf.default 文件
         run: |
+          cd $WORKDIR/openwrt
           echo "src-git passwall_packages https://github.com/xiaorouji/openwrt-passwall-packages.git;main" | sudo tee -a $GITHUB_WORKSPACE/openwrt/feeds.conf.default
           echo "src-git passwall_luci https://github.com/xiaorouji/openwrt-passwall.git;main" | sudo tee -a $GITHUB_WORKSPACE/openwrt/feeds.conf.default
           echo "src-git geoview https://github.com/xiaorouji/openwrt-geoview.git;main" | sudo tee -a $GITHUB_WORKSPACE/openwrt/feeds.conf.default
