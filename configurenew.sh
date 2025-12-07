@@ -20,7 +20,7 @@ echo ">>> Feeds updated in feeds.conf.default"
 
 
 # --------------------------------------------------
-# 2. 更新并安装 feeds (必须先完成)
+# 2. 更新并安装 feeds
 # --------------------------------------------------
 ./scripts/feeds update -a
 ./scripts/feeds install -a
@@ -28,7 +28,7 @@ echo ">>> Feeds update & install complete"
 
 
 # --------------------------------------------------
-# 3. 之后再删除自带的核心库
+# 3. 删除 OpenWrt 自带核心包（防止冲突）
 # --------------------------------------------------
 echo ">>> Removing stock core network packages..."
 rm -rf feeds/packages/net/{xray-core,v2ray-geodata,sing-box,chinadns-ng,dns2socks,hysteria,ipt2socks,microsocks,naiveproxy,shadowsocks-libev,shadowsocks-rust,shadowsocksr-libev,simple-obfs,tcping,trojan-plus,tuic-client,v2ray-plugin,xray-plugin,geoview,shadow-tls}
@@ -38,7 +38,7 @@ echo ">>> New passwall-packages cloned"
 
 
 # --------------------------------------------------
-# 4. 删除过时 luci-passwall 并替换新版
+# 4. 删除旧版 luci-app-passwall 并替换新版
 # --------------------------------------------------
 echo ">>> Removing outdated luci-app-passwall..."
 rm -rf feeds/luci/applications/luci-app-passwall
@@ -46,4 +46,69 @@ rm -rf feeds/luci/applications/luci-app-passwall
 git clone https://github.com/xiaorouji/openwrt-passwall package/passwall-luci
 echo ">>> New luci-passwall cloned"
 
-echo ">>> All done (method 2)."
+
+# --------------------------------------------------
+# 5. 自动启用 passwall / passwall2 和核心
+# --------------------------------------------------
+echo ">>> Enabling Passwall & Passwall2 in .config..."
+
+# 自动创建 .config
+if [ ! -f .config ]; then
+    echo ">>> .config 不存在，自动生成默认配置..."
+    make defconfig > /dev/null 2>&1
+fi
+
+# 启用 Passwall 主界面与核心
+sed -i 's/# CONFIG_PACKAGE_luci-app-passwall is not set/CONFIG_PACKAGE_luci-app-passwall=y/' .config
+sed -i 's/# CONFIG_PACKAGE_passwall is not set/CONFIG_PACKAGE_passwall=y/' .config
+
+# 启用 Passwall2
+sed -i 's/# CONFIG_PACKAGE_luci-app-passwall2 is not set/CONFIG_PACKAGE_luci-app-passwall2=y/' .config
+sed -i 's/# CONFIG_PACKAGE_passwall2 is not set/CONFIG_PACKAGE_passwall2=y/' .config
+
+# 启用常用核心组件
+configs=(
+    CONFIG_PACKAGE_sing-box
+    CONFIG_PACKAGE_xray-core
+    CONFIG_PACKAGE_v2ray-geodata
+    CONFIG_PACKAGE_chinadns-ng
+    CONFIG_PACKAGE_naiveproxy
+    CONFIG_PACKAGE_trojan-plus
+    CONFIG_PACKAGE_shadowsocks-rust-sslocal
+    CONFIG_PACKAGE_shadowsocks-rust-ssserver
+)
+
+for item in "${configs[@]}"; do
+    sed -i "s/# ${item} is not set/${item}=y/" .config
+done
+
+echo ">>> Passwall & Passwall2 enabled"
+
+
+# --------------------------------------------------
+# 6. 自动关闭 SSR Plus（避免冲突）
+# --------------------------------------------------
+echo ">>> Disabling SSR Plus..."
+
+disable_items=(
+    CONFIG_PACKAGE_luci-app-ssr-plus
+    CONFIG_PACKAGE_ssr-plus
+    CONFIG_PACKAGE_shadowsocksr-libev
+    CONFIG_PACKAGE_shadowsocksr-libev-ssr-local
+    CONFIG_PACKAGE_shadowsocksr-libev-ssr-server
+)
+
+for item in "${disable_items[@]}"; do
+    sed -i "s/^${item}=y/# ${item} is not set/" .config
+    sed -i "s/^${item}=m/# ${item} is not set/" .config
+
+    if ! grep -q "^# ${item} is not set" .config ; then
+        echo "# ${item} is not set" >> .config
+    fi
+done
+
+echo ">>> SSR Plus disabled"
+
+
+echo ">>> All done (full script complete)."
+echo ">>> 你可以运行：make menuconfig 进行最终检查"
