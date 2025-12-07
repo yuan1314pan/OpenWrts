@@ -111,7 +111,7 @@ jobs:
           mkdir -p $WORKDIR/openwrt/files/etc/uci-defaults
           printf '#!/bin/sh\n' > $WORKDIR/openwrt/files/etc/uci-defaults/99-set-network
           printf '# 自动注入 LAN IP + PPPoE 信息\n' >> $WORKDIR/openwrt/files/etc/uci-defaults/99-set-network
-          printf 'sed -i "s/192.168.1.1/${{ github.event.inputs.lan_ip }}/g" /etc/config/network\n' >> $WORKDIR/openwrt/files/etc/uci-defaults/99-set-network
+          printf 'sed -i "s/192.168.100.1/${{ github.event.inputs.lan_ip }}/g" /etc/config/network\n' >> $WORKDIR/openwrt/files/etc/uci-defaults/99-set-network
           printf 'uci set network.wan.proto="pppoe"\n' >> $WORKDIR/openwrt/files/etc/uci-defaults/99-set-network
           printf 'uci set network.wan.username="${{ github.event.inputs.pppoe_user }}"\n' >> $WORKDIR/openwrt/files/etc/uci-defaults/99-set-network
           printf 'uci set network.wan.password="${{ github.event.inputs.pppoe_pass }}"\n' >> $WORKDIR/openwrt/files/etc/uci-defaults/99-set-network
