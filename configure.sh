@@ -5,6 +5,8 @@
 # sed -i 's/192.168.1.1/192.168.100.1/g' package/base-files/files/bin/config_generate
 
 cat >> feeds.conf.default <<'EOF'
+src-git passwall_packages https://github.com/xiaorouji/openwrt-passwall-packages.git;main
+src-git passwall_luci https://github.com/xiaorouji/openwrt-passwall.git;main
 src-git helloworld https://github.com/fw876/helloworld
 src-git passwall2 https://github.com/xiaorouji/openwrt-passwall2.git;main
 src-git istore https://github.com/linkease/istore;main
