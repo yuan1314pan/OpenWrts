@@ -82,8 +82,8 @@ jobs:
       - name: 更新并安装 feeds
         run: |
           cd $WORKDIR/openwrt
-      #    ./scripts/feeds update -a
-      #    ./scripts/feeds install -a
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
 
       - name: 检查磁盘空间
         run: df -hT
