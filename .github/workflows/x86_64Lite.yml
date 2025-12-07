@@ -95,9 +95,6 @@ jobs:
           [ -e $GITHUB_WORKSPACE/$FEEDS_CONF ] && mv $GITHUB_WORKSPACE/$FEEDS_CONF feeds.conf.default
           chmod +x $GITHUB_WORKSPACE/$SYS_CONF_SH
           bash $GITHUB_WORKSPACE/$SYS_CONF_SH
-          cd $WORKDIR/openwrt
-          ./scripts/feeds update -a
-          ./scripts/feeds install -a
 
       # 7. 加载自定义配置和 package.sh
       - name: 加载自定义配置和 package.sh
