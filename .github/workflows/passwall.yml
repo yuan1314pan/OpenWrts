@@ -3,23 +3,39 @@ name: Build Passwall Package
 on:
   workflow_dispatch:
     inputs:
-      passwall_version:
-        description: '指定 Passwall 版本（默认最新）'
+      lan_ip:
+        description: '默认 LAN IP 地址'
         required: true
-        default: 'latest'
+        default: '192.168.100.11'
+      pppoe_user:
+        description: 'PPPoE 用户名'
+        required: true
+        default: '123456'
+      pppoe_pass:
+        description: 'PPPoE 密码'
+        required: true
+        default: '123456'
   repository_dispatch:
 
 env:
-  OPNAME: 'x86_64im'
-  REPO_URL: https://github.com/immortalwrt/immortalwrt
-  REPO_BRANCH: openwrt-24.10
+  OPNAME: 'x86_64Lite'
+  REPO_URL: https://github.com/coolsnowwolf/lede
+  REPO_BRANCH: master
   FEEDS_CONF: feeds.conf.default
+  EXTERNAL_FILE: configs/luci/diy.config
   CONFIG_FILE: configs/x86_64.config
+  SYS_CONF_SH: configure.sh
   PACKS: package.sh
   EXTEND_DRIVER: false
-  UPLOAD_BIN_DIR: true
+  UPLOAD_BIN_DIR: false
+  UPLOAD_FIRMWARE: true
+  UPLOAD_RELEASE: true
   WORKDIR: /mnt/openwrt_workdir
   TZ: Asia/Shanghai
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
 
 jobs:
   build:
