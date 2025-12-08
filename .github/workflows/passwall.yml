@@ -104,7 +104,7 @@ jobs:
       - name: 编译 Passwall 包
         run: |
           cd $WORKDIR/openwrt
-          make package/feeds/passwall/passwall/compile V=s
+          make package/feeds/passwall/luci-app-passwall/compile V=s
           echo "status=success" >> $GITHUB_OUTPUT
 
       # 9. 上传 Passwall 包到 Artifact
