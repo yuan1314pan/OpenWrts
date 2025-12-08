@@ -137,14 +137,6 @@ jobs:
           make defconfig
           sed -i '/CONFIG_DEFAULT_luci/d' .config
           cat .config
-      # 10. 最终修改配置
-      - name: 修改最终配置
-        run: |
-          cd $WORKDIR/openwrt
-          cat $GITHUB_WORKSPACE/$EXTERNAL_FILE >> .config
-          make defconfig
-          sed -i '/CONFIG_DEFAULT_luci/d' .config
-          cat .config
       
           
       # 10.5 输出并保存最终 .config
