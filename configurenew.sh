@@ -4,6 +4,8 @@
 # 1. 写入自定义 feeds
 # --------------------------------------------------
 cat >> feeds.conf.default << 'EOF'
+src-git passwall_packages https://github.com/xiaorouji/openwrt-passwall-packages.git;main
+src-git passwall_luci https://github.com/xiaorouji/openwrt-passwall.git;main
 src-git helloworld https://github.com/fw876/helloworld
 #src-git passwall2 https://github.com/xiaorouji/openwrt-passwall2.git;main
 src-git istore https://github.com/linkease/istore;main
