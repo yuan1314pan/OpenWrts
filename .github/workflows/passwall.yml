@@ -120,7 +120,7 @@ jobs:
 
       # 9. 上传 Passwall 包到 Artifact
       - name: 上传 Passwall .ipk 包
-        uses: actions/upload-artifact@v2
+        uses: softprops/action-gh-release@v1
         if: steps.compile.outputs.status == 'success'
         with:
           name: passwall_package_${{ github.event.inputs.passwall_version }}_${{ github.run_id }}
