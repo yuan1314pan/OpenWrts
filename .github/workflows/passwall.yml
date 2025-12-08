@@ -135,16 +135,23 @@ jobs:
           # 使用 make defconfig 确保正确加载配置
           make defconfig
 
-          # 清理旧的编译文件
-          make package/feeds/passwall/luci-app-passwall/clean
+          # 清理旧的编译文件，确保正确清理
+          echo "清理旧的编译文件..."
+          make clean
 
           # 编译 Passwall 包
           echo "开始编译 luci-app-passwall..."
           make package/feeds/passwall/luci-app-passwall/compile -j$(nproc) V=s
 
-          # 将编译结果移到 upload 目录
-          mkdir -p upload
-          mv bin/packages/*/passwall/luci-* upload/
+          # 确保编译成功后移动包
+          if [ -d "$WORKDIR/openwrt/bin/packages" ]; then
+            echo "编译完成，移动文件到 upload 目录..."
+            mkdir -p upload
+          mv $WORKDIR/openwrt/bin/packages/*/passwall/luci-* upload/
+          else
+            echo "编译失败，未找到编译结果目录"
+            exit 1
+          fi
 
           # 输出成功信息并保存路径
           cd upload
