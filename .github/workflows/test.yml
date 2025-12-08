@@ -1,4 +1,4 @@
-name: x86_64 OpenWrt test
+name: x86_64 OpenWrt lite
 
 on:
   workflow_dispatch:
@@ -24,7 +24,7 @@ env:
   FEEDS_CONF: feeds.conf.default
   EXTERNAL_FILE: configs/luci/Lite.config
   CONFIG_FILE: configs/x86_64.config
-  SYS_CONF_SH: configurenew.sh
+  SYS_CONF_SH: configure.sh
   PACKS: package.sh
   EXTEND_DRIVER: false
   UPLOAD_BIN_DIR: false
@@ -91,7 +91,7 @@ jobs:
       - name: 检查磁盘空间
         run: df -hT
 
-      # 6. 自定义 feeds 和脚本 
+      # 6. 自定义 feeds 和脚本 
       - name: 加载自定义 feeds 和脚本 configurenew.sh
         run: |
           cd $WORKDIR/openwrt
@@ -136,8 +136,8 @@ jobs:
           make defconfig
           sed -i '/CONFIG_DEFAULT_luci/d' .config
           cat .config
-      
-  
+      
+  
 
       # 10.5 输出并保存最终 .config
       - name: 输出并保存最终 .config
