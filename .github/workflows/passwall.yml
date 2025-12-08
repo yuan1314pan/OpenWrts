@@ -98,14 +98,6 @@ jobs:
           cd $WORKDIR/openwrt
           [ -e $GITHUB_WORKSPACE/$CONFIG_FILE ] && mv $GITHUB_WORKSPACE/$CONFIG_FILE .config
           make defconfig
-      # 7. 更新 Passwall 包
-      - name: 更新 Passwall 包
-        run: |
-          cd $WORKDIR/openwrt
-          # 直接下载最新的 Passwall
-          git clone --depth 1 https://github.com/xiaorouji/openwrt-passwall.git package/feeds/passwall
-
-
 
 
       # 8. 编译 Passwall 包
