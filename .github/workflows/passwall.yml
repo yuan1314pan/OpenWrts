@@ -33,7 +33,6 @@ env:
   WORKDIR: /mnt/openwrt_workdir
   TZ: Asia/Shanghai
 
-
 jobs:
   build:
     runs-on: ubuntu-22.04
@@ -84,30 +83,50 @@ jobs:
           ./scripts/feeds update -a
           ./scripts/feeds install -a
 
-      # 5. 自定义 feeds 和脚本
-      - name: 加载自定义 feeds 和脚本
+      # 5. 删除 OpenWrt 自带核心包（防止冲突）
+      - name: 删除 OpenWrt 自带核心包
+        run: |
+          echo ">>> Removing stock core network packages..."
+          rm -rf $WORKDIR/openwrt/feeds/packages/net/{xray-core,v2ray-geodata,sing-box,chinadns-ng,dns2socks,hysteria,ipt2socks,microsocks,naiveproxy,shadowsocks-libev,shadowsocks-rust,shadowsocksr-libev,simple-obfs,tcping,trojan-plus,tuic-client,v2ray-plugin,xray-plugin,geoview,shadow-tls}
+          echo ">>> Stock core packages removed"
+
+      # 6. 克隆 Passwall 包
+      - name: 克隆 Passwall 包
+        run: |
+          echo ">>> Cloning Passwall packages..."
+          git clone https://github.com/xiaorouji/openwrt-passwall-packages $WORKDIR/openwrt/package/passwall-packages
+          echo ">>> New passwall-packages cloned"
+
+      # 7. 删除旧版 luci-app-passwall 并替换新版
+      - name: 删除并替换 luci-app-passwall
+        run: |
+          echo ">>> Removing outdated luci-app-passwall..."
+          rm -rf $WORKDIR/openwrt/feeds/luci/applications/luci-app-passwall
+          git clone https://github.com/xiaorouji/openwrt-passwall $WORKDIR/openwrt/package/passwall-luci
+          echo ">>> New luci-app-passwall cloned"
+
+      # 8. 更新 feeds 和安装
+      - name: 更新并安装自定义 Feeds
         run: |
           cd $WORKDIR/openwrt
-          [ -e $GITHUB_WORKSPACE/$FEEDS_CONF ] && mv $GITHUB_WORKSPACE/$FEEDS_CONF feeds.conf.default
-          chmod +x $GITHUB_WORKSPACE/$PACKS
-          bash $GITHUB_WORKSPACE/$PACKS
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
 
-      # 6. 加载自定义配置
+      # 9. 加载自定义配置
       - name: 加载自定义配置
         run: |
           cd $WORKDIR/openwrt
           [ -e $GITHUB_WORKSPACE/$CONFIG_FILE ] && mv $GITHUB_WORKSPACE/$CONFIG_FILE .config
           make defconfig
 
-
-      # 8. 编译 Passwall 包
+      # 10. 编译 Passwall 包
       - name: 编译 Passwall 包
         run: |
           cd $WORKDIR/openwrt
           make package/feeds/passwall/luci-app-passwall/compile V=s
           echo "status=success" >> $GITHUB_OUTPUT
 
-      # 9. 上传 Passwall 包到 Artifact
+      # 11. 上传 Passwall 包到 Artifact
       - name: 上传 Passwall .ipk 包
         uses: softprops/action-gh-release@v1
         if: steps.compile.outputs.status == 'success'
@@ -115,7 +134,7 @@ jobs:
           name: passwall_package_${{ github.event.inputs.passwall_version }}_${{ github.run_id }}
           path: $WORKDIR/openwrt/bin/packages/*/*/passwall*.ipk
 
-      # 10. 清理编译缓存
+      # 12. 清理编译缓存
       - name: 清理编译缓存
         if: steps.compile.outputs.status == 'success'
         run: |
