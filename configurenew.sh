@@ -5,7 +5,7 @@
 # --------------------------------------------------
 cat >> feeds.conf.default << 'EOF'
 src-git helloworld https://github.com/fw876/helloworld
-src-git passwall2 https://github.com/xiaorouji/openwrt-passwall2.git;main
+#src-git passwall2 https://github.com/xiaorouji/openwrt-passwall2.git;main
 src-git istore https://github.com/linkease/istore;main
 src-git kenzo https://github.com/kenzok8/openwrt-packages
 src-git tailscale_lanrat git@github.com:lanrat/openwrt-tailscale-repo.git
