@@ -33,9 +33,6 @@ env:
   WORKDIR: /mnt/openwrt_workdir
   TZ: Asia/Shanghai
 
-jobs:
-  build:
-    runs-on: ubuntu-22.04
 
 jobs:
   build:
