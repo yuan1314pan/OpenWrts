@@ -75,30 +75,6 @@ done
 echo ">>> Passwall & Passwall2 enabled"
 
 
-# --------------------------------------------------
-# 6. 自动关闭 SSR Plus（避免冲突）
-# --------------------------------------------------
-echo ">>> Disabling SSR Plus..."
-
-disable_items=(
-    CONFIG_PACKAGE_luci-app-ssr-plus
-    CONFIG_PACKAGE_ssr-plus
-    CONFIG_PACKAGE_shadowsocksr-libev
-    CONFIG_PACKAGE_shadowsocksr-libev-ssr-local
-    CONFIG_PACKAGE_shadowsocksr-libev-ssr-server
-)
-
-for item in "${disable_items[@]}"; do
-    sed -i "s/^${item}=y/# ${item} is not set/" .config
-    sed -i "s/^${item}=m/# ${item} is not set/" .config
-
-    if ! grep -q "^# ${item} is not set" .config ; then
-        echo "# ${item} is not set" >> .config
-    fi
-done
-
-echo ">>> SSR Plus disabled"
-
 
 echo ">>> All done (full script complete)."
 echo ">>> 你可以运行：make menuconfig 进行最终检查"
