@@ -66,17 +66,7 @@ sed -i 's/# CONFIG_PACKAGE_passwall is not set/CONFIG_PACKAGE_passwall=y/' .conf
 sed -i 's/# CONFIG_PACKAGE_luci-app-passwall2 is not set/CONFIG_PACKAGE_luci-app-passwall2=y/' .config
 sed -i 's/# CONFIG_PACKAGE_passwall2 is not set/CONFIG_PACKAGE_passwall2=y/' .config
 
-# 启用常用核心组件
-configs=(
-    CONFIG_PACKAGE_sing-box
-    CONFIG_PACKAGE_xray-core
-    CONFIG_PACKAGE_v2ray-geodata
-    CONFIG_PACKAGE_chinadns-ng
-    CONFIG_PACKAGE_naiveproxy
-    CONFIG_PACKAGE_trojan-plus
-    CONFIG_PACKAGE_shadowsocks-rust-sslocal
-    CONFIG_PACKAGE_shadowsocks-rust-ssserver
-)
+
 
 for item in "${configs[@]}"; do
     sed -i "s/# ${item} is not set/${item}=y/" .config
