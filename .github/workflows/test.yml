@@ -28,7 +28,7 @@ env:
   # 使用 openwrt-24.10 分支（对应 OpenWrt 24.10，内核 6.6）
   REPO_BRANCH: openwrt-24.10
   FEEDS_CONF: feeds.conf.default
-  EXTERNAL_FILE: configs/luci/im.config
+  EXTERNAL_FILE: configs/luci/Lite.config
   CONFIG_FILE: configs/x86_64.config
   SYS_CONF_SH: configurenew.sh
   PACKS: package.sh
