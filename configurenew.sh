@@ -4,8 +4,8 @@
 # 1. 写入自定义 feeds
 # --------------------------------------------------
 cat >> feeds.conf.default << 'EOF'
-src-git passwall_packages https://github.com/xiaorouji/openwrt-passwall-packages.git;main
-src-git passwall_luci https://github.com/xiaorouji/openwrt-passwall.git;main
+#src-git passwall_packages https://github.com/xiaorouji/openwrt-passwall-packages.git;main
+#src-git passwall_luci https://github.com/xiaorouji/openwrt-passwall.git;main
 src-git helloworld https://github.com/fw876/helloworld
 #src-git passwall2 https://github.com/xiaorouji/openwrt-passwall2.git;main
 src-git istore https://github.com/linkease/istore;main
@@ -24,25 +24,21 @@ echo ">>> Feeds updated in feeds.conf.default"
 # --------------------------------------------------
 # 2. 更新并安装 feeds
 # --------------------------------------------------
+
+
+rm -rf package/passwall-packages
+rm -rf package/passwall-luci
+
+# 移除 openwrt feeds 自带的核心库
+rm -rf feeds/packages/net/{xray-core,v2ray-geodata,sing-box,chinadns-ng,dns2socks,hysteria,ipt2socks,microsocks,naiveproxy,shadowsocks-libev,shadowsocks-rust,shadowsocksr-libev,simple-obfs,tcping,trojan-plus,tuic-client,v2ray-plugin,xray-plugin,geoview,shadow-tls}
+git clone https://github.com/xiaorouji/openwrt-passwall-packages package/passwall-packages
+
+# 移除 openwrt feeds 过时的luci版本
+rm -rf feeds/luci/applications/luci-app-passwall
+git clone https://github.com/xiaorouji/openwrt-passwall package/passwall-luci
+
 ./scripts/feeds update -a
 ./scripts/feeds install -a
-echo ">>> Feeds update & install complete"
-
-# 3. 删除 OpenWrt 自带核心包（防止冲突）
-echo ">>> Removing stock core network packages..."
-rm -rf $WORKDIR/openwrt/feeds/packages/net/{xray-core,v2ray-geodata,sing-box,chinadns-ng,dns2socks,hysteria,ipt2socks,microsocks,naiveproxy,shadowsocks-libev,shadowsocks-rust,shadowsocksr-libev,simple-obfs,tcping,trojan-plus,tuic-client,v2ray-plugin,xray-plugin,geoview,shadow-tls}
-
-git clone https://github.com/xiaorouji/openwrt-passwall-packages $WORKDIR/openwrt/package/passwall-packages
-echo ">>> New passwall-packages cloned"
-
-# 4. 删除旧版 luci-app-passwall 并替换新版
-echo ">>> Removing outdated luci-app-passwall..."
-rm -rf $WORKDIR/openwrt/feeds/luci/applications/luci-app-passwall
-
-git clone https://github.com/xiaorouji/openwrt-passwall $WORKDIR/openwrt/package/passwall-luci
-echo ">>> New luci-passwall cloned"
-
-
 
 
 
