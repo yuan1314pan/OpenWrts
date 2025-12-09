@@ -81,7 +81,7 @@ jobs:
 
       # 4. 启动 SSH 连接 (tmate) 如果用户选择启用
       - name: 启动 SSH 连接
-        if: ${{ inputs.ssh == 'true' }}
+        if: ${{ inputs.ssh == true }}
         uses: mxschmitt/action-tmate@v3.13
 
 
