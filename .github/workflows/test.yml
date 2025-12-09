@@ -153,7 +153,7 @@ jobs:
           cd $WORKDIR/openwrt
           cat $GITHUB_WORKSPACE/$EXTERNAL_FILE >> .config
           make defconfig
-          sed -i '/CONFIG_DEFAULT_luci/d' .config
+          # sed -i '/CONFIG_DEFAULT_luci/d' .config
           cat .config
       
           
