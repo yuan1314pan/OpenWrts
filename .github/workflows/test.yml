@@ -1,5 +1,4 @@
-name: x86_64 OpenWrt test
-
+name: x86_64 OpenWrt im
 on:
   workflow_dispatch:
     inputs:
@@ -15,14 +14,21 @@ on:
         description: 'PPPoE 密码'
         required: true
         default: '123456'
+      ssh:
+        description: 'Enable SSH connection to Actions'
+        required: false
+        default: 'false'
+        type: boolean
   repository_dispatch:
 
 env:
-  OPNAME: 'x86_64Lite'
-  REPO_URL: https://github.com/coolsnowwolf/lede
-  REPO_BRANCH: master
+  OPNAME: 'x86_64im'
+  # 改为 ImmortalWrt 源（im 的）
+  REPO_URL: https://github.com/immortalwrt/immortalwrt
+  # 使用 openwrt-24.10 分支（对应 OpenWrt 24.10，内核 6.6）
+  REPO_BRANCH: openwrt-24.10
   FEEDS_CONF: feeds.conf.default
-  EXTERNAL_FILE: configs/luci/diy.config
+  EXTERNAL_FILE: configs/luci/im.config
   CONFIG_FILE: configs/x86_64.config
   SYS_CONF_SH: configurenew.sh
   PACKS: package.sh
@@ -58,6 +64,17 @@ jobs:
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
           sudo docker image prune -a -f
           df -hT
+              # Install Go if not installed
+          if ! command -v go &>/dev/null; then
+          echo "Go not found, installing..."
+            sudo apt-get -qq install golang-go
+          else
+            echo "Go is already installed"
+          fi
+
+          # Check Go version
+          go version
+
 
       - name: 检查磁盘空间
         run: df -hT
@@ -91,8 +108,8 @@ jobs:
       - name: 检查磁盘空间
         run: df -hT
 
-      # 6. 自定义 feeds 和脚本 
-      - name: 加载自定义 feeds 和脚本 configurenew.sh
+      # 6. 自定义 feeds 和脚本
+      - name: 加载自定义 feeds 和脚本
         run: |
           cd $WORKDIR/openwrt
           [ -e $GITHUB_WORKSPACE/$FEEDS_CONF ] && mv $GITHUB_WORKSPACE/$FEEDS_CONF feeds.conf.default
@@ -137,8 +154,7 @@ jobs:
           sed -i '/CONFIG_DEFAULT_luci/d' .config
           cat .config
       
-  
-
+          
       # 10.5 输出并保存最终 .config
       - name: 输出并保存最终 .config
         run: |
@@ -160,6 +176,11 @@ jobs:
 
       - name: 检查磁盘空间
         run: df -hT
+
+      # 4. 启动 SSH 连接 (tmate) 如果用户选择启用
+      - name: 启动 SSH 连接
+        if: ${{ inputs.ssh == 'true' }}
+        uses: mxschmitt/action-tmate@v3.13
 
       # 12. 编译固件
       - name: 编译 OpenWrt 固件
