@@ -22,7 +22,7 @@ env:
   REPO_URL: https://github.com/coolsnowwolf/lede
   REPO_BRANCH: master
   FEEDS_CONF: feeds.conf.default
-  EXTERNAL_FILE: configs/luci/diy.config
+  EXTERNAL_FILE: configs/luci/lede.config
   CONFIG_FILE: configs/x86_64.config
   SYS_CONF_SH: configurenew.sh
   PACKS: package.sh
