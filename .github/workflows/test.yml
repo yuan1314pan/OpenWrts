@@ -79,12 +79,6 @@ jobs:
       - name: 检查磁盘空间
         run: df -hT
 
-      # 4. 启动 SSH 连接 (tmate) 如果用户选择启用
-      - name: 启动 SSH 连接
-        if: ${{ inputs.ssh == true }}
-        uses: mxschmitt/action-tmate@v3.13
-        continue-on-error: true
-
 
 
       # 3. 克隆 OpenWrt 源码
@@ -187,8 +181,10 @@ jobs:
 
       # 4. 启动 SSH 连接 (tmate) 如果用户选择启用
       - name: 启动 SSH 连接
-        if: ${{ inputs.ssh == 'true' }}
+        if: ${{ inputs.ssh == true }}
         uses: mxschmitt/action-tmate@v3.13
+        continue-on-error: true
+
 
       # 12. 编译固件
       - name: 编译 OpenWrt 固件
