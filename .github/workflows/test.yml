@@ -83,6 +83,7 @@ jobs:
       - name: 启动 SSH 连接
         if: ${{ inputs.ssh == true }}
         uses: mxschmitt/action-tmate@v3.13
+        continue-on-error: true
 
 
 
