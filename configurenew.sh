@@ -3,9 +3,11 @@
 # --------------------------------------------------
 # 1. 写入自定义 feeds
 # --------------------------------------------------
-cat >> feeds.conf.default << 'EOF'
-#src-git passwall_packages https://github.com/xiaorouji/openwrt-passwall-packages.git;main
-#src-git passwall_luci https://github.com/xiaorouji/openwrt-passwall.git;main
+
+
+cat > feeds.tmp <<'EOF'
+src-git passwall_packages https://github.com/xiaorouji/openwrt-passwall-packages.git;main
+src-git passwall_luci https://github.com/xiaorouji/openwrt-passwall.git;main
 src-git helloworld https://github.com/fw876/helloworld
 #src-git passwall2 https://github.com/xiaorouji/openwrt-passwall2.git;main
 src-git istore https://github.com/linkease/istore;main
@@ -18,7 +20,10 @@ src-git smartdns https://github.com/pymumu/openwrt-smartdns.git;main
 src-git socat https://github.com/immortalwrt/packages.git;packages
 EOF
 
-echo ">>> Feeds updated in feeds.conf.default"
+
+cat feeds.conf.default >> feeds.tmp
+mv feeds.tmp feeds.conf.default
+
 
 
 # --------------------------------------------------
@@ -40,36 +45,31 @@ git clone https://github.com/xiaorouji/openwrt-passwall package/passwall-luci
 ./scripts/feeds update -a
 ./scripts/feeds install -a
 
+# Apply patches
+echo "Start applying patches..."
 
+rm -rf temp_resp
+git clone -b master --single-branch https://github.com/openwrt/packages.git temp_resp
+echo "Update golang version"
+rm -rf feeds/packages/lang/golang
+cp -r temp_resp/lang/golang feeds/packages/lang
+echo "Update rust version"
+rm -rf feeds/packages/lang/rust
+cp -r temp_resp/lang/rust feeds/packages/lang
+rm -rf temp_resp
 
-# --------------------------------------------------
-# 5. 自动启用 passwall / passwall2 和核心
-# --------------------------------------------------
-echo ">>> Enabling Passwall & Passwall2 in .config..."
+git clone -b main --single-branch https://github.com/openwrt/openwrt.git temp_resp
+cp -f temp_resp/scripts/patch-kernel.sh scripts/
+rm -rf temp_resp
 
-# 自动创建 .config
-if [ ! -f .config ]; then
-    echo ">>> .config 不存在，自动生成默认配置..."
-    make defconfig > /dev/null 2>&1
-fi
+echo "Fix rust host build error"
+sed -i 's/--set=llvm\.download-ci-llvm=false/--set=llvm.download-ci-llvm=true/' feeds/packages/lang/rust/Makefile
+grep -q -- '--ci false \\' feeds/packages/lang/rust/Makefile || sed -i '/x\.py \\/a \        --ci false \\' feeds/packages/lang/rust/Makefile
 
-# 启用 Passwall 主界面与核心
-sed -i 's/# CONFIG_PACKAGE_luci-app-passwall is not set/CONFIG_PACKAGE_luci-app-passwall=y/' .config
-sed -i 's/# CONFIG_PACKAGE_passwall is not set/CONFIG_PACKAGE_passwall=y/' .config
-
-# 启用 Passwall2
-sed -i 's/# CONFIG_PACKAGE_luci-app-passwall2 is not set/CONFIG_PACKAGE_luci-app-passwall2=y/' .config
-sed -i 's/# CONFIG_PACKAGE_passwall2 is not set/CONFIG_PACKAGE_passwall2=y/' .config
-
-
-
-for item in "${configs[@]}"; do
-    sed -i "s/# ${item} is not set/${item}=y/" .config
-done
-
-echo ">>> Passwall & Passwall2 enabled"
+echo "Patches applied successfully"
 
 
 
-echo ">>> All done (full script complete)."
-echo ">>> 你可以运行：make menuconfig 进行最终检查"
+
+
+
