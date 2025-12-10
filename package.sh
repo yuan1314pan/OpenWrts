@@ -4,6 +4,7 @@ git clone --depth 1 https://github.com/destan19/OpenAppFilter package/otherapp/O
 git clone --depth 1 https://github.com/zzsj0928/luci-app-pushbot package/otherapp/luci-app-pushbot
 git clone --depth 1 https://github.com/sirpdboy/luci-app-wizard package/otherapp/luci-app-wizard
 git clone --depth 1 https://github.com/sirpdboy/luci-app-advancedplus package/otherapp/luci-app-advancedplus
+git clone --depth 1 https://github.com/docker/docker-ce.git package/docker
 
 
 # Theme
