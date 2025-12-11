@@ -213,10 +213,8 @@ jobs:
         run: |
           # 进入 bin 目录并压缩整个 packages 目录
           cd $WORKDIR/openwrt/bin
-    
           # 压缩整个 packages 目录
           tar -czvf OpenWrt_packages_${{ env.DEVICE_NAME }}_${{ env.FILE_DATE }}.tar.gz packages
-    
           # 将压缩包复制到工作区，准备上传
           cp OpenWrt_packages_${{ env.DEVICE_NAME }}_${{ env.FILE_DATE }}.tar.gz $GITHUB_WORKSPACE/
         with:
