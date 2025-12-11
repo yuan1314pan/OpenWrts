@@ -192,8 +192,8 @@ jobs:
           rm -rf build_dir staging_dir tmp bin/packages .ccache
           df -hT
       # 14. 上传 bin 目录（可选）
-      # 14. 上传 packages 文件夹
-      - name: 上传 packages 文件夹
+        # 14.1 压缩 packages 文件夹
+      - name: 压缩 packages 文件夹
         if: steps.compile.outputs.status == 'success' && env.UPLOAD_BIN_DIR == 'true'
         run: |
           cd $WORKDIR/openwrt/bin
@@ -201,11 +201,14 @@ jobs:
           tar -czvf OpenWrt_packages_${{ env.DEVICE_NAME }}_${{ env.FILE_DATE }}.tar.gz packages
           # 将压缩包复制到工作区
           cp OpenWrt_packages_${{ env.DEVICE_NAME }}_${{ env.FILE_DATE }}.tar.gz $GITHUB_WORKSPACE/
-        uses: aactions/upload-artifact@main
+
+      # 14.2 上传 packages 压缩包
+      - name: 上传 packages 压缩包
+        if: steps.compile.outputs.status == 'success' && env.UPLOAD_BIN_DIR == 'true'
+        uses: actions/upload-artifact@main
         with:
           name: OpenWrt_packages_${{ env.DEVICE_NAME }}_${{ env.FILE_DATE }}
           path: $GITHUB_WORKSPACE/OpenWrt_packages_${{ env.DEVICE_NAME }}_${{ env.FILE_DATE }}.tar.gz
-
       # 15. 整理固件目录
       - name: 整理固件目录
         id: organize
