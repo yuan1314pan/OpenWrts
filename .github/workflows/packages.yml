@@ -18,7 +18,7 @@ env:
   FEEDS_CONF: feeds.conf.default
   EXTERNAL_FILE: configs/luci/test.config
   CONFIG_FILE: configs/x86_64.config
-  SYS_CONF_SH: configurenew.sh
+  SYS_CONF_SH: configuretest.sh
   PACKS: package.sh
   EXTEND_DRIVER: false
   UPLOAD_BIN_DIR: true
