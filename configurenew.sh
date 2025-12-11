@@ -6,23 +6,39 @@
 
 
 cat > feeds.tmp <<'EOF'
-src-git passwall_packages https://github.com/xiaorouji/openwrt-passwall-packages.git;main
-src-git passwall_luci https://github.com/xiaorouji/openwrt-passwall.git;main
+#src-git passwall_packages https://github.com/xiaorouji/openwrt-passwall-packages.git;main
+#src-git passwall_luci https://github.com/xiaorouji/openwrt-passwall.git;main
 #src-git helloworld https://github.com/fw876/helloworld
 #src-git passwall2 https://github.com/xiaorouji/openwrt-passwall2.git;main
-src-git istore https://github.com/linkease/istore;main
-src-git kenzo https://github.com/kenzok8/openwrt-packages
+#src-git istore https://github.com/linkease/istore;main
+#src-git kenzo https://github.com/kenzok8/openwrt-packages
 #src-git tailscale_lanrat git@github.com:lanrat/openwrt-tailscale-repo.git
 #src-git docker https://github.com/openwrt/packages.git^refs/heads/master
 #src-git tailscale git@github.com:berndog/lede-tailscale.git
 #src-git ddnsgo git@github.com/linkease/ddns-go-feed.git
-src-git smartdns https://github.com/pymumu/openwrt-smartdns.git;main
-src-git socat https://github.com/immortalwrt/packages.git;packages
+#src-git smartdns https://github.com/pymumu/openwrt-smartdns.git;main
+#src-git socat https://github.com/immortalwrt/packages.git;packages
 EOF
 
 
 cat feeds.conf.default >> feeds.tmp
 mv feeds.tmp feeds.conf.default
+
+# 克隆 Passwall 包和相关组件
+git clone https://github.com/xiaorouji/openwrt-passwall-packages.git -b main
+git clone https://github.com/xiaorouji/openwrt-passwall.git -b main
+
+# 克隆 Istor 和 Kenzo 包
+git clone https://github.com/linkease/istore.git -b main
+git clone https://github.com/kenzok8/openwrt-packages.git
+
+# 克隆 SmartDNS 包
+git clone https://github.com/pymumu/smartdns.git -b master
+
+# 克隆 Socat 包
+# git clone https://github.com/immortalwrt/packages.git -b packages
+
+git clone -b openwrt-24.10 https://github.com/immortalwrt/packages.git
 
 
 
