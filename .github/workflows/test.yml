@@ -14,24 +14,19 @@ on:
         description: 'PPPoE 密码'
         required: true
         default: '123456'
-      ssh:
-        description: 'Enable SSH connection to Actions'
-        required: false
-        default: 'false'
-        type: boolean
   repository_dispatch:
 
 env:
-  OPNAME: 'x86_64im'
+  OPNAME: 'x86_64ImmortalWrttest'
   REPO_URL: https://github.com/immortalwrt/immortalwrt
   REPO_BRANCH: openwrt-24.10
   FEEDS_CONF: feeds.conf.default
-  EXTERNAL_FILE: configs/luci/test.config
+  EXTERNAL_FILE: configs/luci/im.config
   CONFIG_FILE: configs/x86_64.config
   SYS_CONF_SH: configurenew.sh
   PACKS: package.sh
   EXTEND_DRIVER: false
-  UPLOAD_BIN_DIR: true
+  UPLOAD_BIN_DIR: true  # 设置为 true 以启用上传
   UPLOAD_FIRMWARE: true
   UPLOAD_RELEASE: true
   WORKDIR: /mnt/openwrt_workdir
@@ -145,6 +140,7 @@ jobs:
           cd $WORKDIR/openwrt
           cat $GITHUB_WORKSPACE/$EXTERNAL_FILE >> .config
           make defconfig
+          sed -i '/CONFIG_DEFAULT_luci/d' .config
           cat .config
       
       # 10.5 输出并保存最终 .config
@@ -167,13 +163,7 @@ jobs:
       - name: 检查磁盘空间
         run: df -hT
 
-      # 12. 启动 SSH 连接 (tmate)
-      - name: 启动 SSH 连接
-        if: ${{ inputs.ssh == 'true' }}
-        uses: mxschmitt/action-tmate@v3.13
-        continue-on-error: true
-
-      # 13. 编译固件
+      # 12. 编译固件
       - name: 编译 OpenWrt 固件
         id: compile
         run: |
@@ -184,7 +174,7 @@ jobs:
           echo "DEVICE_NAME=_x86_64Lite" >> $GITHUB_ENV
           echo "FILE_DATE=_$(date +'%Y%m%d%H%M')" >> $GITHUB_ENV
 
-      # 14. 清理编译缓存
+      # 13. 清理编译缓存
       - name: 清理编译缓存
         if: steps.compile.outputs.status == 'success'
         run: |
@@ -192,8 +182,8 @@ jobs:
           rm -rf build_dir staging_dir tmp bin/packages .ccache
           df -hT
 
-      # 15. 上传 bin 目录下的 packages 目录
-      - name: 上传 packages 目录
+      # 14. 上传 packages 文件夹
+      - name: 上传 packages 文件夹
         if: steps.compile.outputs.status == 'success' && env.UPLOAD_BIN_DIR == 'true'
         run: |
           cd $WORKDIR/openwrt/bin
@@ -204,7 +194,7 @@ jobs:
           name: OpenWrt_packages_${{ env.DEVICE_NAME }}_${{ env.FILE_DATE }}
           path: $GITHUB_WORKSPACE/OpenWrt_packages_${{ env.DEVICE_NAME }}_${{ env.FILE_DATE }}.tar.gz
 
-      # 16. 整理固件目录
+      # 15. 整理固件目录
       - name: 整理固件目录
         id: organize
         if: steps.compile.outputs.status == 'success' && env.UPLOAD_FIRMWARE == 'true'
@@ -214,7 +204,7 @@ jobs:
           echo "FIRMWARE=$PWD" >> $GITHUB_ENV
           echo "status=success" >> $GITHUB_OUTPUT
 
-      # 17. 上传固件到 Artifact
+      # 16. 上传固件到 Artifact
       - name: 上传固件到 Artifact
         if: steps.compile.outputs.status == 'success' && env.UPLOAD_FIRMWARE == 'true'
         uses: actions/upload-artifact@v4
@@ -222,7 +212,7 @@ jobs:
           name: OpenWrt_firmware${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
           path: ${{ env.FIRMWARE }}
 
-      # 18. 生成 Release tag
+      # 17. 生成 Release tag
       - name: 生成 Release tag
         id: tag
         if: steps.compile.outputs.status == 'success' && env.UPLOAD_RELEASE == 'true'
@@ -231,12 +221,12 @@ jobs:
           touch release.txt
           echo "status=success" >> $GITHUB_OUTPUT
 
-      # 19. Release 内容生成
+      # 18. Release 内容生成
       - name: 生成 Release 内容
         run: |
           echo "![](https://img.shields.io/github/downloads/${{ github.repository }}/${{ steps.tag.outputs.release_tag }}/total?style=flat-square)" >> release.txt
 
-      # 20. 上传固件到 Release
+      # 19. 上传固件到 Release
       - name: 上传固件到 Release
         uses: softprops/action-gh-release@v1
         if: steps.tag.outputs.status == 'success'
