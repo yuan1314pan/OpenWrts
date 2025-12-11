@@ -28,9 +28,9 @@ mv feeds.tmp feeds.conf.default
 git clone https://github.com/xiaorouji/openwrt-passwall-packages.git -b main
 git clone https://github.com/xiaorouji/openwrt-passwall.git -b main
 
-# 克隆 Istor 和 Kenzo 包
+# 克隆 Istore 和 Kenzo 包
 git clone https://github.com/linkease/istore.git -b main
-git clone https://github.com/kenzok8/openwrt-packages.git
+#git clone https://github.com/kenzok8/openwrt-packages.git
 
 # 克隆 SmartDNS 包
 git clone https://github.com/pymumu/smartdns.git -b master
@@ -38,7 +38,7 @@ git clone https://github.com/pymumu/smartdns.git -b master
 # 克隆 Socat 包
 # git clone https://github.com/immortalwrt/packages.git -b packages
 
-git clone -b openwrt-24.10 https://github.com/immortalwrt/packages.git
+#git clone -b openwrt-24.10 https://github.com/immortalwrt/packages.git
 
 
 
