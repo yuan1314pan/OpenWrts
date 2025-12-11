@@ -33,7 +33,7 @@ env:
   SYS_CONF_SH: configurenew.sh
   PACKS: package.sh
   EXTEND_DRIVER: false
-  UPLOAD_BIN_DIR: false
+  UPLOAD_BIN_DIR: true
   UPLOAD_FIRMWARE: true
   UPLOAD_RELEASE: true
   WORKDIR: /mnt/openwrt_workdir
