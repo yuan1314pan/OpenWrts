@@ -1,11 +1,249 @@
-# 14. 上传 bin 目录下的 packages 目录（可选）
-- name: 上传 bin 目录下的 packages 目录
-  if: steps.compile.outputs.status == 'success' && env.UPLOAD_BIN_DIR == 'true'
-  run: |
-    cd $WORKDIR/openwrt/bin
-    tar -czvf OpenWrt_packages_${{ env.DEVICE_NAME }}_${{ env.FILE_DATE }}.tar.gz packages
-    cp OpenWrt_packages_${{ env.DEVICE_NAME }}_${{ env.FILE_DATE }}.tar.gz $GITHUB_WORKSPACE/
-  uses: actions/upload-artifact@v4
-  with:
-    name: OpenWrt_packages_${{ env.DEVICE_NAME }}_${{ env.FILE_DATE }}
-    path: $GITHUB_WORKSPACE/OpenWrt_packages_${{ env.DEVICE_NAME }}_${{ env.FILE_DATE }}.tar.gz
+name: x86_64 OpenWrt test
+on:
+  workflow_dispatch:
+    inputs:
+      lan_ip:
+        description: '默认 LAN IP 地址'
+        required: true
+        default: '192.168.100.11'
+      pppoe_user:
+        description: 'PPPoE 用户名'
+        required: true
+        default: '123456'
+      pppoe_pass:
+        description: 'PPPoE 密码'
+        required: true
+        default: '123456'
+      ssh:
+        description: 'Enable SSH connection to Actions'
+        required: false
+        default: 'false'
+        type: boolean
+  repository_dispatch:
+
+env:
+  OPNAME: 'x86_64im'
+  REPO_URL: https://github.com/immortalwrt/immortalwrt
+  REPO_BRANCH: openwrt-24.10
+  FEEDS_CONF: feeds.conf.default
+  EXTERNAL_FILE: configs/luci/test.config
+  CONFIG_FILE: configs/x86_64.config
+  SYS_CONF_SH: configurenew.sh
+  PACKS: package.sh
+  EXTEND_DRIVER: false
+  UPLOAD_BIN_DIR: true
+  UPLOAD_FIRMWARE: true
+  UPLOAD_RELEASE: true
+  WORKDIR: /mnt/openwrt_workdir
+  TZ: Asia/Shanghai
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+
+    steps:
+      # 1. 检出仓库
+      - name: 检出仓库
+        uses: actions/checkout@v4
+
+      # 2. 初始化系统环境
+      - name: 初始化系统环境
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          sudo rm -rf /etc/apt/sources.list.d/*
+          sudo -E apt-get -qq update
+          sudo -E apt-get -qq install $(curl -fsSL https://raw.githubusercontent.com/bigbugcc/openwrts/master/openwrt-env)
+          sudo -E apt-get -qq autoremove --purge
+          sudo -E apt-get -qq clean
+          sudo timedatectl set-timezone "$TZ"
+          sudo mkdir -p $WORKDIR
+          sudo chown $USER:$GROUPS $WORKDIR
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          sudo docker image prune -a -f
+          df -hT
+          # Install Go if not installed
+          if ! command -v go &>/dev/null; then
+            echo "Go not found, installing..."
+            sudo apt-get -qq install golang-go
+          else
+            echo "Go is already installed"
+          fi
+          go version
+
+      - name: 检查磁盘空间
+        run: df -hT
+
+      # 3. 克隆 OpenWrt 源码
+      - name: 克隆 OpenWrt 源码
+        working-directory: ${{ env.WORKDIR }}
+        run: |
+          git clone --depth 1 -b $REPO_BRANCH $REPO_URL openwrt
+          ln -sf $WORKDIR/openwrt $GITHUB_WORKSPACE/openwrt
+
+      # 4. 使用 cache 加速编译
+      - name: 缓存编译
+        uses: stupidloud/cachewrtbuild@main
+        with:
+          ccache: 'true'
+          mixkey: 'x86'
+          prefix: 'openwrt'
+
+      - name: 检查磁盘空间
+        run: df -hT
+
+      # 5. 更新 feeds
+      - name: 更新并安装 feeds
+        run: |
+          cd $WORKDIR/openwrt
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+
+      - name: 检查磁盘空间
+        run: df -hT
+
+      # 6. 自定义 feeds 和脚本
+      - name: 加载自定义 feeds 和脚本
+        run: |
+          cd $WORKDIR/openwrt
+          [ -e $GITHUB_WORKSPACE/$FEEDS_CONF ] && mv $GITHUB_WORKSPACE/$FEEDS_CONF feeds.conf.default
+          chmod +x $GITHUB_WORKSPACE/$SYS_CONF_SH
+          bash $GITHUB_WORKSPACE/$SYS_CONF_SH
+
+      # 7. 加载自定义配置和 package.sh
+      - name: 加载自定义配置和 package.sh
+        run: |
+          cd $WORKDIR/openwrt
+          [ -e $GITHUB_WORKSPACE/files ] && mv $GITHUB_WORKSPACE/files files
+          [ -e $GITHUB_WORKSPACE/$CONFIG_FILE ] && mv $GITHUB_WORKSPACE/$CONFIG_FILE .config
+          chmod +x $GITHUB_WORKSPACE/$PACKS
+          bash $GITHUB_WORKSPACE/$PACKS
+
+      # 8. 自动注入 LAN IP + PPPoE 信息
+      - name: 自动注入 LAN IP 和 PPPoE
+        run: |
+          mkdir -p $WORKDIR/openwrt/files/etc/uci-defaults
+          printf '#!/bin/sh\n' > $WORKDIR/openwrt/files/etc/uci-defaults/99-set-network
+          printf '# 自动注入 LAN IP + PPPoE 信息\n' >> $WORKDIR/openwrt/files/etc/uci-defaults/99-set-network
+          printf 'sed -i "s/192\.168\.[0-9]\{1,3\}\.[0-9]\{1,3\}/${{ github.event.inputs.lan_ip }}/g" /etc/config/network\n' >> $WORKDIR/openwrt/files/etc/uci-defaults/99-set-network
+          printf 'uci set network.wan.proto="pppoe"\n' >> $WORKDIR/openwrt/files/etc/uci-defaults/99-set-network
+          printf 'uci set network.wan.username="${{ github.event.inputs.pppoe_user }}"\n' >> $WORKDIR/openwrt/files/etc/uci-defaults/99-set-network
+          printf 'uci set network.wan.password="${{ github.event.inputs.pppoe_pass }}"\n' >> $WORKDIR/openwrt/files/etc/uci-defaults/99-set-network
+          printf 'uci commit network\n' >> $WORKDIR/openwrt/files/etc/uci-defaults/99-set-network
+          printf 'exit 0\n' >> $WORKDIR/openwrt/files/etc/uci-defaults/99-set-network
+
+      # 9. 扩展驱动（Lite 不启用）
+      - name: 扩展驱动
+        if: env.EXTEND_DRIVER == 'true'
+        run: |
+          cd $WORKDIR/openwrt
+          cat $GITHUB_WORKSPACE/configs/Driver.config >> .config
+
+      # 10. 最终修改配置
+      - name: 修改最终配置
+        run: |
+          cd $WORKDIR/openwrt
+          cat $GITHUB_WORKSPACE/$EXTERNAL_FILE >> .config
+          make defconfig
+          cat .config
+      
+      # 10.5 输出并保存最终 .config
+      - name: 输出并保存最终 .config
+        run: |
+          cd $WORKDIR/openwrt
+          echo "======== 当前 OpenWrt 配置 ========"
+          cat .config
+          echo "==================================="
+          cp .config $WORKDIR/openwrt/.config_backup_$(date +'%Y%m%d%H%M%S')
+          echo "已保存 .config 备份文件"
+
+      # 11. 下载 dl 包
+      - name: 下载依赖包
+        run: |
+          cd $WORKDIR/openwrt
+          make download -j$(nproc)
+          find dl -size -1024c -exec rm -f {} \;
+
+      - name: 检查磁盘空间
+        run: df -hT
+
+      # 12. 启动 SSH 连接 (tmate)
+      - name: 启动 SSH 连接
+        if: ${{ inputs.ssh == 'true' }}
+        uses: mxschmitt/action-tmate@v3.13
+        continue-on-error: true
+
+      # 13. 编译固件
+      - name: 编译 OpenWrt 固件
+        id: compile
+        run: |
+          cd $WORKDIR/openwrt
+          echo "$(nproc) thread compile"
+          make -j$(nproc) V=s || make -j4 V=s
+          echo "status=success" >> $GITHUB_OUTPUT
+          echo "DEVICE_NAME=_x86_64Lite" >> $GITHUB_ENV
+          echo "FILE_DATE=_$(date +'%Y%m%d%H%M')" >> $GITHUB_ENV
+
+      # 14. 清理编译缓存
+      - name: 清理编译缓存
+        if: steps.compile.outputs.status == 'success'
+        run: |
+          cd $WORKDIR/openwrt
+          rm -rf build_dir staging_dir tmp bin/packages .ccache
+          df -hT
+
+      # 15. 上传 bin 目录下的 packages 目录
+      - name: 上传 packages 目录
+        if: steps.compile.outputs.status == 'success' && env.UPLOAD_BIN_DIR == 'true'
+        run: |
+          cd $WORKDIR/openwrt/bin
+          tar -czvf OpenWrt_packages_${{ env.DEVICE_NAME }}_${{ env.FILE_DATE }}.tar.gz packages
+          cp OpenWrt_packages_${{ env.DEVICE_NAME }}_${{ env.FILE_DATE }}.tar.gz $GITHUB_WORKSPACE/
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenWrt_packages_${{ env.DEVICE_NAME }}_${{ env.FILE_DATE }}
+          path: $GITHUB_WORKSPACE/OpenWrt_packages_${{ env.DEVICE_NAME }}_${{ env.FILE_DATE }}.tar.gz
+
+      # 16. 整理固件目录
+      - name: 整理固件目录
+        id: organize
+        if: steps.compile.outputs.status == 'success' && env.UPLOAD_FIRMWARE == 'true'
+        run: |
+          cd $WORKDIR/openwrt/bin/targets/*/*
+          rm -rf packages
+          echo "FIRMWARE=$PWD" >> $GITHUB_ENV
+          echo "status=success" >> $GITHUB_OUTPUT
+
+      # 17. 上传固件到 Artifact
+      - name: 上传固件到 Artifact
+        if: steps.compile.outputs.status == 'success' && env.UPLOAD_FIRMWARE == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenWrt_firmware${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
+          path: ${{ env.FIRMWARE }}
+
+      # 18. 生成 Release tag
+      - name: 生成 Release tag
+        id: tag
+        if: steps.compile.outputs.status == 'success' && env.UPLOAD_RELEASE == 'true'
+        run: |
+          echo "release_tag=$(date +"%Y.%m.%d-%H%M%S")" >> $GITHUB_OUTPUT
+          touch release.txt
+          echo "status=success" >> $GITHUB_OUTPUT
+
+      # 19. Release 内容生成
+      - name: 生成 Release 内容
+        run: |
+          echo "![](https://img.shields.io/github/downloads/${{ github.repository }}/${{ steps.tag.outputs.release_tag }}/total?style=flat-square)" >> release.txt
+
+      # 20. 上传固件到 Release
+      - name: 上传固件到 Release
+        uses: softprops/action-gh-release@v1
+        if: steps.tag.outputs.status == 'success'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          name: ${{ env.OPNAME }}
+          tag_name: ${{ steps.tag.outputs.release_tag }}
+          body_path: release.txt
+          files: ${{ env.FIRMWARE }}/*
