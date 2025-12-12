@@ -134,7 +134,7 @@ jobs:
       # 7. 添加自定义配置，使用外部的 test.config 文件
       - name: 添加自定义配置
         run: |
-          echo "从外部配置文件添加自定义配置..."
+          cd $WORKDIR/openwrt
           cat >> $WORKDIR/openwrt/.config << 'EOF'
           # ========== 基础配置 ==========
           CONFIG_TARGET_x86=y
@@ -230,6 +230,7 @@ jobs:
           CONFIG_PACKAGE_libpthread=y
           CONFIG_PACKAGE_librt=y
           EOF
+          cat .config
 
       # 8. 处理配置
       - name: 处理配置
