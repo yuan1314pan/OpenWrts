@@ -160,13 +160,18 @@ jobs:
           printf 'uci set network.wan.password="${{ github.event.inputs.pppoe_pass }}"\n' >> $WORKDIR/openwrt/files/etc/uci-defaults/99-set-network
           printf 'uci commit network\n' >> $WORKDIR/openwrt/files/etc/uci-defaults/99-set-network
           printf 'exit 0\n' >> $WORKDIR/openwrt/files/etc/uci-defaults/99-set-network
+      # 9. 开始下载依赖
+      - name: 下载依赖
+        run: |
+          echo "开始下载 OpenWrt 所需依赖..."
+          make download -j$(nproc)
 
-      # 9. 开始编译
+      # 10. 开始编译
       - name: 开始编译
         run: |
           echo "开始编译 OpenWrt..."
-          make download -j$(nproc)
           make -j$(nproc) V=s || make -j4 V=s
+
 
       # 10. 生成 Release 标签
       - name: 生成 Release tag
