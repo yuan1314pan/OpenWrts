@@ -1,5 +1,4 @@
-name: OpenWrt 编译 - Kenzo仓库 Quickstart
-
+name: OpenWrt 编译 test
 on:
   workflow_dispatch:
     inputs:
@@ -147,6 +146,19 @@ jobs:
         run: |
           echo "处理配置..."
           yes "" | make oldconfig
+
+      # 8.1 自动注入 LAN IP + PPPoE 信息
+      - name: 自动注入 LAN IP 和 PPPoE
+        run: |
+          mkdir -p $WORKDIR/openwrt/files/etc/uci-defaults
+          printf '#!/bin/sh\n' > $WORKDIR/openwrt/files/etc/uci-defaults/99-set-network
+          printf '# 自动注入 LAN IP + PPPoE 信息\n' >> $WORKDIR/openwrt/files/etc/uci-defaults/99-set-network
+          printf 'sed -i "s/192\.168\.[0-9]\{1,3\}\.[0-9]\{1,3\}/${{ github.event.inputs.lan_ip }}/g" /etc/config/network\n' >> $WORKDIR/openwrt/files/etc/uci-defaults/99-set-network
+          printf 'uci set network.wan.proto="pppoe"\n' >> $WORKDIR/openwrt/files/etc/uci-defaults/99-set-network
+          printf 'uci set network.wan.username="${{ github.event.inputs.pppoe_user }}"\n' >> $WORKDIR/openwrt/files/etc/uci-defaults/99-set-network
+          printf 'uci set network.wan.password="${{ github.event.inputs.pppoe_pass }}"\n' >> $WORKDIR/openwrt/files/etc/uci-defaults/99-set-network
+          printf 'uci commit network\n' >> $WORKDIR/openwrt/files/etc/uci-defaults/99-set-network
+          printf 'exit 0\n' >> $WORKDIR/openwrt/files/etc/uci-defaults/99-set-network
 
       # 9. 开始编译
       - name: 开始编译
