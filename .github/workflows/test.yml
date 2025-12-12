@@ -160,46 +160,83 @@ jobs:
           printf 'uci set network.wan.password="${{ github.event.inputs.pppoe_pass }}"\n' >> $WORKDIR/openwrt/files/etc/uci-defaults/99-set-network
           printf 'uci commit network\n' >> $WORKDIR/openwrt/files/etc/uci-defaults/99-set-network
           printf 'exit 0\n' >> $WORKDIR/openwrt/files/etc/uci-defaults/99-set-network
+
       # 9. 开始下载依赖
       - name: 下载依赖
+        id: download
         run: |
-        
           echo "开始下载 OpenWrt 所需依赖..."
           cd $WORKDIR/openwrt
           make download -j$(nproc)
+          echo "download_status=success" >> $GITHUB_OUTPUT
 
       # 10. 开始编译
       - name: 开始编译
+        id: compile
         run: |
           echo "开始编译 OpenWrt..."
-          cd $WORKDIR/openwrt  
-          make -j$(nproc) V=s || make -j4 V=s
+          cd $WORKDIR/openwrt
+          if make -j$(nproc) V=s || make -j4 V=s; then
+            echo "编译成功"
+            echo "status=success" >> $GITHUB_OUTPUT
+          else
+            echo "编译失败"
+            echo "status=failed" >> $GITHUB_OUTPUT
+            exit 1
+          fi
 
+      # 11. 检查固件文件
+      - name: 检查固件文件
+        if: steps.compile.outputs.status == 'success'
+        run: |
+          echo "检查固件目录..."
+          ls -la ${{ env.FIRMWARE }} || echo "固件目录不存在"
+          echo "列出所有文件..."
+          find ${{ env.FIRMWARE }} -type f -name "*" 2>/dev/null | head -20
 
-      # 10. 生成 Release 标签
+      # 12. 生成 Release 标签
       - name: 生成 Release tag
         id: tag
         if: steps.compile.outputs.status == 'success' && env.UPLOAD_RELEASE == 'true'
         run: |
-          echo "release_tag=$(date +"%Y.%m.%d-%H%M%S")" >> $GITHUB_OUTPUT
-          touch release.txt
+          RELEASE_TAG=$(date +"%Y.%m.%d-%H%M%S")
+          echo "release_tag=$RELEASE_TAG" >> $GITHUB_OUTPUT
           echo "status=success" >> $GITHUB_OUTPUT
+          echo "生成的标签: $RELEASE_TAG"
 
-      # 11. 生成 Release 内容
+      # 13. 生成 Release 内容
       - name: 生成 Release 内容
+        if: steps.compile.outputs.status == 'success' && env.UPLOAD_RELEASE == 'true'
         run: |
-          echo "![](https://img.shields.io/github/downloads/${{ github.repository }}/${{ steps.tag.outputs.release_tag }}/total?style=flat-square)" >> release.txt
+          echo "生成 Release 内容..."
+          echo "![](https://img.shields.io/github/downloads/${{ github.repository }}/${{ steps.tag.outputs.release_tag }}/total?style=flat-square)" > release.txt
+          echo "" >> release.txt
+          echo "## 固件信息" >> release.txt
+          echo "- 构建时间: $(date '+%Y-%m-%d %H:%M:%S')" >> release.txt
+          echo "- 目标平台: x86_64" >> release.txt
+          echo "- 源码分支: ${{ env.REPO_BRANCH }}" >> release.txt
+          echo "" >> release.txt
+          echo "## 网络配置" >> release.txt
+          echo "- LAN IP: ${{ github.event.inputs.lan_ip }}" >> release.txt
+          echo "- PPPoE 用户: ${{ github.event.inputs.pppoe_user }}" >> release.txt
+          echo "- PPPoE 密码: [已设置]" >> release.txt
 
-      # 12. 上传固件到 Release
+      # 14. 上传固件到 Release
       - name: 上传固件到 Release
         uses: softprops/action-gh-release@v1
-        if: steps.tag.outputs.status == 'success' && env.UPLOAD_FIRMWARE == 'true'
+        if: steps.compile.outputs.status == 'success' && env.UPLOAD_RELEASE == 'true' && env.UPLOAD_FIRMWARE == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          name: ${{ env.OPNAME }}
+          name: ${{ env.OPNAME }} - ${{ steps.tag.outputs.release_tag }}
           tag_name: ${{ steps.tag.outputs.release_tag }}
           body_path: release.txt
-          files: ${{ env.FIRMWARE }}/*
-
-     
+          files: |
+            ${{ env.FIRMWARE }}/*.img.gz
+            ${{ env.FIRMWARE }}/*.rootfs.tar.gz
+            ${{ env.FIRMWARE }}/*.kernel
+            ${{ env.FIRMWARE }}/*.manifest
+            ${{ env.FIRMWARE }}/sha256sums
+          draft: false
+          prerelease: false
+          generate_release_notes: true
