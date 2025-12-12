@@ -145,6 +145,7 @@ jobs:
       - name: 处理配置
         run: |
           echo "处理配置..."
+          cd $WORKDIR/openwrt
           yes "" | make oldconfig
 
       # 8.1 自动注入 LAN IP + PPPoE 信息
