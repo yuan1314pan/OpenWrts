@@ -163,13 +163,16 @@ jobs:
       # 9. 开始下载依赖
       - name: 下载依赖
         run: |
+        
           echo "开始下载 OpenWrt 所需依赖..."
+          cd $WORKDIR/openwrt
           make download -j$(nproc)
 
       # 10. 开始编译
       - name: 开始编译
         run: |
           echo "开始编译 OpenWrt..."
+          cd $WORKDIR/openwrt  
           make -j$(nproc) V=s || make -j4 V=s
 
 
