@@ -1,4 +1,4 @@
-name: OpenWrt 编译 test
+name: x86_64 OpenWrt test
 on:
   workflow_dispatch:
     inputs:
@@ -15,7 +15,7 @@ on:
         required: true
         default: '123456'
       ssh:
-        description: '是否启用 SSH 连接到 Actions'
+        description: 'Enable SSH connection to Actions'
         required: false
         default: 'false'
         type: boolean
@@ -23,7 +23,9 @@ on:
 
 env:
   OPNAME: 'x86_64im'
+  # 改为 ImmortalWrt 源（im 的）
   REPO_URL: https://github.com/immortalwrt/immortalwrt
+  # 使用 openwrt-24.10 分支（对应 OpenWrt 24.10，内核 6.6）
   REPO_BRANCH: openwrt-24.10
   FEEDS_CONF: feeds.conf.default
   EXTERNAL_FILE: configs/luci/test.config
@@ -36,7 +38,6 @@ env:
   UPLOAD_RELEASE: true
   WORKDIR: /mnt/openwrt_workdir
   TZ: Asia/Shanghai
-  FIRMWARE: $WORKDIR/openwrt/bin/targets/x86/64
 
 jobs:
   build:
@@ -62,184 +63,41 @@ jobs:
           sudo chown $USER:$GROUPS $WORKDIR
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
           sudo docker image prune -a -f
+          df -hT
+              # Install Go if not installed
+          if ! command -v go &>/dev/null; then
+          echo "Go not found, installing..."
+            sudo apt-get -qq install golang-go
+          else
+            echo "Go is already installed"
+          fi
+          # Check Go version
+          go version
+      - name: 检查磁盘空间
+        run: df -hT
 
-      # 3. 克隆 ImmortalWrt 仓库
-      - name: 克隆 ImmortalWrt 仓库
+
+
+      # 3. 克隆 OpenWrt 源码
+      - name: 克隆 OpenWrt 源码
+        working-directory: ${{ env.WORKDIR }}
         run: |
-          echo "克隆 ImmortalWrt 仓库..."
-          git clone --depth 1 -b "$REPO_BRANCH" "$REPO_URL" $WORKDIR/openwrt || echo "仓库克隆失败，请检查网络连接"
+          git clone --depth 1 -b $REPO_BRANCH $REPO_URL openwrt
+          ln -sf $WORKDIR/openwrt $GITHUB_WORKSPACE/openwrt
+      # 4. 使用 cache 加速编译
+      - name: 缓存编译
+        uses: stupidloud/cachewrtbuild@main
+        with:
+          ccache: 'true'
+          mixkey: 'x86'
+          prefix: 'openwrt'
 
-      # 4. 配置官方 feeds
-      - name: 配置官方 feeds
-        run: |
-          echo "配置官方 feeds..."
-          cat > $WORKDIR/openwrt/feeds.conf.default << 'EOF'
-          src-git packages https://github.com/openwrt/packages.git;openwrt-24.10
-          src-git luci https://github.com/openwrt/luci.git;openwrt-24.10
-          src-git routing https://github.com/openwrt/routing.git;openwrt-24.10
-          src-git telephony https://github.com/openwrt/telephony.git;openwrt-24.10
-          EOF
-          cd $WORKDIR/openwrt
-          ./scripts/feeds update -a
-          ./scripts/feeds install -a
+      - name: 检查磁盘空间
+        run: df -hT
 
-      # 5. 下载自定义包到统一目录
-      - name: 下载自定义包
-        run: |
-          echo "下载自定义包到统一目录..."
-          CUSTOM_DIR="package/custom"
-          mkdir -p "$CUSTOM_DIR"
-          clone_to_custom() {
-            local url="$1"
-            local name="$2"
-            local target_dir="$CUSTOM_DIR/$name"
-            if [ ! -d "$target_dir" ]; then
-              echo "下载: $name"
-              if git clone --depth 1 "$url" "$target_dir" 2>/dev/null; then
-                echo "  ✓ 下载成功"
-                return 0
-              else
-                echo "  ✗ 下载失败"
-                return 1
-              fi
-            else
-              echo "已存在: $name"
-              return 0
-            fi
-          }
 
-          clone_to_custom "https://github.com/linkease/istore.git" "istore"
-          clone_to_custom "https://github.com/sirpdboy/luci-app-advancedplus.git" "luci-app-advancedplus"
-          clone_to_custom "https://github.com/sirpdboy/luci-theme-kucat.git" "luci-theme-kucat"
-          clone_to_custom "https://github.com/sirpdboy/luci-app-kucat-config.git" "luci-app-kucat-config"
-          clone_to_custom "https://github.com/kenzok8/openwrt-packages.git" "kenzo"
-          clone_to_custom "https://github.com/kenzok8/small.git" "small"
 
-          cd $WORKDIR/openwrt
-          ./scripts/feeds update -a
-          rm -rf feeds/luci/applications/luci-app-mosdns
-          rm -rf feeds/packages/net/{alist,adguardhome,mosdns,xray*,v2ray*,v2ray*,sing*,smartdns}
-          rm -rf feeds/packages/utils/v2dat
-          rm -rf feeds/packages/lang/golang
-          git clone https://github.com/kenzok8/golang feeds/packages/lang/golang
-          ./scripts/feeds install -a
-
-      # 6. 生成配置
-      - name: 生成配置
-        run: |
-          echo "生成配置..."
-          cd $WORKDIR/openwrt
-          make defconfig
-
-      # 7. 添加自定义配置，使用外部的 test.config 文件
-      - name: 添加自定义配置
-        run: |
-          cd $WORKDIR/openwrt
-          cat >> $WORKDIR/openwrt/.config << 'EOF'
-          # ========== 基础配置 ==========
-          CONFIG_TARGET_x86=y
-          CONFIG_TARGET_x86_64=y
-          CONFIG_TARGET_x86_64_DEVICE_generic=y
-
-          # ========== 核心依赖配置 ==========
-          CONFIG_ALL_KMODS=y
-          CONFIG_ALL_NONSHARED=y
-          CONFIG_SELECT_ALL_KMODS=y
-          CONFIG_BUILD_NLS=y
-          CONFIG_BUILD_PATENTED=y
-
-          # ========== 文件系统 ==========
-          CONFIG_TARGET_ROOTFS_PARTSIZE=1024
-          CONFIG_ISO_IMAGES=y
-          CONFIG_VMDK_IMAGES=y
-
-          # ========== 核心工具 ==========
-          CONFIG_PACKAGE_bash=y
-          CONFIG_PACKAGE_coreutils=y
-          CONFIG_PACKAGE_curl=y
-          CONFIG_PACKAGE_tar=y
-          CONFIG_PACKAGE_unzip=y
-          CONFIG_PACKAGE_wget=y
-          CONFIG_PACKAGE_vim=y
-
-          # ========== 网络工具 ==========
-          CONFIG_PACKAGE_ip-full=y
-          CONFIG_PACKAGE_iptables-nft=y
-          CONFIG_PACKAGE_ip6tables-nft=y
-          CONFIG_PACKAGE_nftables=y
-          CONFIG_PACKAGE_socat=y
-
-          # ========== 容器支持 ==========
-          CONFIG_PACKAGE_docker=y
-          CONFIG_PACKAGE_dockerd=y
-          CONFIG_PACKAGE_containerd=y
-          CONFIG_PACKAGE_runc=y
-
-          # ========== 自定义包配置 ==========
-          # Passwall
-          CONFIG_PACKAGE_luci-app-passwall=y
-          CONFIG_PACKAGE_luci-app-passwall_INCLUDE_Xray=y
-          CONFIG_PACKAGE_luci-app-passwall_INCLUDE_Shadowsocks_Libev_Client=y
-          CONFIG_PACKAGE_luci-app-passwall_INCLUDE_Shadowsocks_Rust_Client=y
-          CONFIG_PACKAGE_luci-app-passwall_INCLUDE_Trojan_Plus=y
-          CONFIG_PACKAGE_luci-app-passwall_INCLUDE_Shadowsocks_Libev_Server=y
-          CONFIG_PACKAGE_luci-app-passwall_INCLUDE_SingBox=y
-          CONFIG_PACKAGE_luci-app-passwall_INCLUDE_Haproxy=y
-          CONFIG_PACKAGE_luci-app-webadmin=y
-
-          # iStore
-          CONFIG_PACKAGE_luci-app-store=y
-
-          # SmartDNS
-          CONFIG_PACKAGE_smartdns=y
-          CONFIG_PACKAGE_luci-app-smartdns=y
-
-          # ========== Kenzo 包配置（仅启用quickstart） ==========
-          # 注意：Kenzo仓库已完整下载，但这里只启用quickstart
-          CONFIG_PACKAGE_luci-app-quickstart=y
-
-          # ========== 其他独立应用 ==========
-          CONFIG_PACKAGE_luci-app-advancedplus=y
-          CONFIG_PACKAGE_luci-app-dockerman=y
-          CONFIG_PACKAGE_tailscale=y
-          CONFIG_PACKAGE_luci-app-ddns-go=y
-          CONFIG_PACKAGE_luci-app-socat=y
-
-          # ========== 其他主题 ==========
-          CONFIG_PACKAGE_luci-theme-kucat=y
-          CONFIG_PACKAGE_luci-theme-neobird=y
-          CONFIG_PACKAGE_luci-app-kucat-config=y
-
-          # ========== 语言包 ==========
-          CONFIG_PACKAGE_luci-i18n-passwall-zh-cn=y
-          CONFIG_PACKAGE_luci-i18n-smartdns-zh-cn=y
-          CONFIG_PACKAGE_luci-i18n-dockerman-zh-cn=y
-          CONFIG_PACKAGE_luci-i18n-advancedplus-zh-cn=y
-          CONFIG_PACKAGE_luci-i18n-store-zh-cn=y
-          CONFIG_PACKAGE_luci-i18n-quickstart-zh-cn=y
-          CONFIG_PACKAGE_luci-i18n-ddns-go-zh-cn=y
-          CONFIG_PACKAGE_luci-i18n-webadmin-zh-cn=y
-          CONFIG_PACKAGE_luci-i18n-socat-zh-cn=y
-
-          # ========== 基础库 ==========
-          CONFIG_PACKAGE_libopenssl=y
-          CONFIG_PACKAGE_libcurl=y
-          CONFIG_PACKAGE_libsqlite3=y
-          CONFIG_PACKAGE_libjson-c=y
-          CONFIG_PACKAGE_libstdcpp=y
-          CONFIG_PACKAGE_libpthread=y
-          CONFIG_PACKAGE_librt=y
-          EOF
-          cat .config
-
-      # 8. 处理配置
-      - name: 处理配置
-        run: |
-          echo "处理配置..."
-          cd $WORKDIR/openwrt
-          yes "" | make oldconfig
-
-      # 8.1 自动注入 LAN IP + PPPoE 信息
+      # 8. 自动注入 LAN IP + PPPoE 信息
       - name: 自动注入 LAN IP 和 PPPoE
         run: |
           mkdir -p $WORKDIR/openwrt/files/etc/uci-defaults
@@ -252,82 +110,76 @@ jobs:
           printf 'uci commit network\n' >> $WORKDIR/openwrt/files/etc/uci-defaults/99-set-network
           printf 'exit 0\n' >> $WORKDIR/openwrt/files/etc/uci-defaults/99-set-network
 
-      # 9. 开始下载依赖
-      - name: 下载依赖
-        id: download
-        run: |
-          echo "开始下载 OpenWrt 所需依赖..."
-          cd $WORKDIR/openwrt
-          make download -j$(nproc)
-          echo "download_status=success" >> $GITHUB_OUTPUT
 
-      # 10. 开始编译
-      - name: 开始编译
+      # 4. 启动 SSH 连接 (tmate) 如果用户选择启用
+      - name: 启动 SSH 连接
+        if: ${{ inputs.ssh == true }}
+        uses: mxschmitt/action-tmate@v3.13
+        continue-on-error: true
+
+
+      # 12. 编译固件
+      - name: 编译 OpenWrt 固件
         id: compile
         run: |
-          echo "开始编译 OpenWrt..."
           cd $WORKDIR/openwrt
-          if make -j$(nproc) V=s || make -j4 V=s; then
-            echo "编译成功"
-            echo "status=success" >> $GITHUB_OUTPUT
-          else
-            echo "编译失败"
-            echo "status=failed" >> $GITHUB_OUTPUT
-            exit 1
-          fi
-
-      # 11. 检查固件文件
-      - name: 检查固件文件
+          echo "$(nproc) thread compile"
+          make -j$(nproc) V=s || make -j4 V=s
+          echo "status=success" >> $GITHUB_OUTPUT
+          echo "DEVICE_NAME=_x86_64Lite" >> $GITHUB_ENV
+          echo "FILE_DATE=_$(date +'%Y%m%d%H%M')" >> $GITHUB_ENV
+      # 13. 清理编译缓存
+      - name: 清理编译缓存
         if: steps.compile.outputs.status == 'success'
         run: |
-          echo "检查固件目录..."
-          ls -la ${{ env.FIRMWARE }} || echo "固件目录不存在"
-          echo "列出所有文件..."
-          find ${{ env.FIRMWARE }} -type f -name "*" 2>/dev/null | head -20
+          cd $WORKDIR/openwrt
+          rm -rf build_dir staging_dir tmp bin/packages .ccache
+          df -hT
+      # 14. 上传 bin 目录（可选）
+      - name: 上传 bin 目录
+        uses: actions/upload-artifact@main
+        if: steps.compile.outputs.status == 'success' && env.UPLOAD_BIN_DIR == 'true'
+        with:
+          name: OpenWrt_bin${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
+          path: $WORKDIR/openwrt/bin
 
-      # 12. 生成 Release 标签
+      # 15. 整理固件目录
+      - name: 整理固件目录
+        id: organize
+        if: steps.compile.outputs.status == 'success' && env.UPLOAD_FIRMWARE == 'true'
+        run: |
+          cd $WORKDIR/openwrt/bin/targets/*/*
+          rm -rf packages
+          echo "FIRMWARE=$PWD" >> $GITHUB_ENV
+          echo "status=success" >> $GITHUB_OUTPUT
+      # 16. 上传固件到 Artifact
+      - name: 上传固件到 Artifact
+        uses: actions/upload-artifact@main
+        if: steps.organize.outputs.status == 'success'
+        with:
+          name: OpenWrt_firmware${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
+          path: ${{ env.FIRMWARE }}
+
+      # 17. 生成 Release tag
       - name: 生成 Release tag
         id: tag
         if: steps.compile.outputs.status == 'success' && env.UPLOAD_RELEASE == 'true'
         run: |
-          RELEASE_TAG=$(date +"%Y.%m.%d-%H%M%S")
-          echo "release_tag=$RELEASE_TAG" >> $GITHUB_OUTPUT
+          echo "release_tag=$(date +"%Y.%m.%d-%H%M%S")" >> $GITHUB_OUTPUT
+          touch release.txt
           echo "status=success" >> $GITHUB_OUTPUT
-          echo "生成的标签: $RELEASE_TAG"
-
-      # 13. 生成 Release 内容
+      # 18. Release 内容生成
       - name: 生成 Release 内容
-        if: steps.compile.outputs.status == 'success' && env.UPLOAD_RELEASE == 'true'
         run: |
-          echo "生成 Release 内容..."
-          echo "![](https://img.shields.io/github/downloads/${{ github.repository }}/${{ steps.tag.outputs.release_tag }}/total?style=flat-square)" > release.txt
-          echo "" >> release.txt
-          echo "## 固件信息" >> release.txt
-          echo "- 构建时间: $(date '+%Y-%m-%d %H:%M:%S')" >> release.txt
-          echo "- 目标平台: x86_64" >> release.txt
-          echo "- 源码分支: ${{ env.REPO_BRANCH }}" >> release.txt
-          echo "" >> release.txt
-          echo "## 网络配置" >> release.txt
-          echo "- LAN IP: ${{ github.event.inputs.lan_ip }}" >> release.txt
-          echo "- PPPoE 用户: ${{ github.event.inputs.pppoe_user }}" >> release.txt
-          echo "- PPPoE 密码: [已设置]" >> release.txt
-
-      # 14. 上传固件到 Release
+          echo "![](https://img.shields.io/github/downloads/${{ github.repository }}/${{ steps.tag.outputs.release_tag }}/total?style=flat-square)" >> release.txt
+      # 19. 上传固件到 Release
       - name: 上传固件到 Release
         uses: softprops/action-gh-release@v1
-        if: steps.compile.outputs.status == 'success' && env.UPLOAD_RELEASE == 'true' && env.UPLOAD_FIRMWARE == 'true'
+        if: steps.tag.outputs.status == 'success'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          name: ${{ env.OPNAME }} - ${{ steps.tag.outputs.release_tag }}
+          name: ${{ env.OPNAME }}
           tag_name: ${{ steps.tag.outputs.release_tag }}
           body_path: release.txt
-          files: |
-            ${{ env.FIRMWARE }}/*.img.gz
-            ${{ env.FIRMWARE }}/*.rootfs.tar.gz
-            ${{ env.FIRMWARE }}/*.kernel
-            ${{ env.FIRMWARE }}/*.manifest
-            ${{ env.FIRMWARE }}/sha256sums
-          draft: false
-          prerelease: false
-          generate_release_notes: true
+          files: ${{ env.FIRMWARE }}/*
